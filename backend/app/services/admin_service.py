@@ -364,6 +364,24 @@ async def update_partner_reward_percentage(
     return partner
 
 
+async def toggle_partner_active(
+    db: AsyncSession, partner_id: int, admin_id: int
+) -> Partner:
+    result = await db.execute(select(Partner).where(Partner.id == partner_id))
+    partner = result.scalar_one_or_none()
+    if not partner:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Партнёр не найден")
+    if partner.id == admin_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Нельзя деактивировать свою учётную запись")
+    if partner.role == "admin":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Нельзя деактивировать администратора")
+
+    partner.is_active = not partner.is_active
+    await db.commit()
+    await db.refresh(partner)
+    return partner
+
+
 async def get_pending_registrations(db: AsyncSession) -> list[RegistrationRequestResponse]:
     result = await db.execute(
         select(Partner)

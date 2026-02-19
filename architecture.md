@@ -83,7 +83,7 @@ partner_bitrix24_cabinet/
 │       │   ├── landings.py         # CRUD /api/landings
 │       │   ├── analytics.py        # GET /api/analytics/summary, /links, /clients/stats; POST /bitrix/fetch
 │       │   ├── bitrix_settings.py  # POST /api/bitrix/setup, GET|PUT /settings, GET /funnels, /stages, /lead-statuses, /leads, /stats
-│       │   ├── admin.py            # GET /api/admin/overview, /partners, /partners/{id}, /config, /partners/{id}/payments, /reward-percentage, /registrations, /registrations/count; POST /registrations/{id}/approve, /registrations/{id}/reject; PUT /api/admin/clients/{id}/payment, /partners/{id}/reward-percentage, /reward-percentage; POST|GET|DELETE /api/admin/notifications
+│       │   ├── admin.py            # GET /api/admin/overview, /partners, /partners/{id}, /config, /partners/{id}/payments, /reward-percentage, /registrations, /registrations/count; POST /registrations/{id}/approve, /registrations/{id}/reject; PUT /api/admin/clients/{id}/payment, /partners/{id}/reward-percentage, /partners/{id}/toggle-active, /reward-percentage; POST|GET|DELETE /api/admin/notifications
 │       │   ├── notifications.py    # GET /api/notifications/, /unread-count; POST /notifications/{id}/read, /read-all
 │       │   ├── payment_requests.py # POST|GET /api/payment-requests; GET /api/payment-requests/{id}; GET|PUT /api/admin/payment-requests; GET /api/admin/payment-requests/pending-count
 │       │   ├── chat.py             # GET|POST /api/chat/messages, GET /api/chat/unread-count, POST /api/chat/read; GET /api/admin/chat/conversations, GET|POST /api/admin/chat/conversations/{id}/messages, GET /api/admin/chat/unread-count, POST /api/admin/chat/conversations/{id}/read
@@ -98,7 +98,7 @@ partner_bitrix24_cabinet/
 │       │   ├── b24_integration_service.py # HTTP-клиент для b24-transfer-lead (httpx, X-Internal-API-Key)
 │       │   ├── landing_service.py  # create_landing(), get_landings(), update_landing(), delete_landing()
 │       │   ├── analytics_service.py # get_summary(), get_links_stats(), get_bitrix_stats()
-│       │   ├── admin_service.py    # get_admin_overview(), get_partners_stats(), get_partner_detail(), update_client_payment() (авто-расчёт partner_reward), bulk_update_client_payments(), get_partner_payment_summary(), update_partner_reward_percentage(), _get_effective_reward_percentage(), get_pending_registrations(), get_pending_registrations_count(), approve_registration(), reject_registration()
+│       │   ├── admin_service.py    # get_admin_overview(), get_partners_stats(), get_partner_detail(), update_client_payment() (авто-расчёт partner_reward), bulk_update_client_payments(), get_partner_payment_summary(), update_partner_reward_percentage(), _get_effective_reward_percentage(), toggle_partner_active(), get_pending_registrations(), get_pending_registrations_count(), approve_registration(), reject_registration()
 │       │   ├── notification_service.py # create_notification(), get_all_notifications(), delete_notification(), get_partner_notifications() (фильтрация по target_partner_id), get_unread_count(), mark_as_read(), mark_all_as_read()
 │       │   ├── payment_request_service.py # create_payment_request(), get_pending_count(), get_partner_requests(), get_all_requests(), get_request_detail(), process_request()
 │       │   ├── chat_service.py    # send_message_partner(), get_partner_messages(), get_partner_unread_count(), mark_partner_messages_read(), get_conversations(), get_conversation_messages(), send_message_admin(), get_admin_total_unread_count(), mark_admin_messages_read()
@@ -130,7 +130,7 @@ partner_bitrix24_cabinet/
         │   ├── landings.ts         # getLandings(), createLanding(), updateLanding(), deleteLanding()
         │   ├── analytics.ts        # getSummary(), getLinksStats(), fetchBitrixStats()
         │   ├── bitrix.ts           # setupBitrix(), getBitrixSettings(), updateBitrixSettings(), getFunnels(), getStages(), getLeads(), getStats()
-        │   ├── admin.ts            # getAdminOverview(), getAdminPartners(), getAdminPartnerDetail(), getAdminConfig(), updateClientPayment(), getPartnerPaymentSummary(), updatePartnerRewardPercentage(), getGlobalRewardPercentage(), updateGlobalRewardPercentage(), createNotification(), getAdminNotifications(), deleteNotification(), getPendingRegistrations(), getPendingRegistrationsCount(), approveRegistration(), rejectRegistration()
+        │   ├── admin.ts            # getAdminOverview(), getAdminPartners(), getAdminPartnerDetail(), getAdminConfig(), updateClientPayment(), getPartnerPaymentSummary(), updatePartnerRewardPercentage(), togglePartnerActive(), getGlobalRewardPercentage(), updateGlobalRewardPercentage(), createNotification(), getAdminNotifications(), deleteNotification(), getPendingRegistrations(), getPendingRegistrationsCount(), approveRegistration(), rejectRegistration()
         │   ├── notifications.ts    # getNotifications(), getUnreadCount(), markAsRead(), markAllAsRead()
         │   ├── paymentRequests.ts  # createPaymentRequest(), getPartnerPaymentRequests(), getPartnerPaymentRequest(), getAdminPaymentRequests(), getAdminPaymentRequest(), processPaymentRequest(), getPendingCount()
         │   ├── chat.ts             # getPartnerMessages(), sendPartnerMessage(), getPartnerUnreadCount(), markPartnerMessagesRead(), getAdminConversations(), getAdminConversationMessages(), sendAdminMessage(), getAdminChatUnreadCount(), markAdminMessagesRead()
@@ -315,6 +315,7 @@ partner_bitrix24_cabinet/
 | PUT    | /api/admin/clients/{id}/payment       | Обновить данные оплаты клиента        | Admin  |
 | PUT    | /api/admin/clients/bulk-payment       | Массовое обновление оплаты клиентов   | Admin  |
 | GET    | /api/admin/partners/{id}/payments     | Итоги выплат по партнёру              | Admin  |
+| PUT    | /api/admin/partners/{id}/toggle-active | Переключить активность партнёра        | Admin  |
 | PUT    | /api/admin/partners/{id}/reward-percentage | Установить индивидуальный % вознаграждения | Admin  |
 | GET    | /api/admin/reward-percentage          | Получить глобальный % вознаграждения  | Admin  |
 | PUT    | /api/admin/reward-percentage          | Изменить глобальный % вознаграждения  | Admin  |

@@ -6,9 +6,11 @@ import {
   bulkUpdateClientPayment,
   updatePartnerRewardPercentage,
   getGlobalRewardPercentage,
+  togglePartnerActive,
   type AdminPartnerDetail,
   type AdminPartnerClient,
 } from '@/api/admin'
+import { useToast } from '@/hooks/useToast'
 import StatsCard from '@/components/StatsCard'
 
 function formatCurrency(value: number | null | undefined): string {
@@ -38,8 +40,10 @@ const ALL_COLUMNS: ColumnDef[] = [
 
 export default function AdminPartnerDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const { showToast } = useToast()
   const [partner, setPartner] = useState<AdminPartnerDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [toggleActiveModalOpen, setToggleActiveModalOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<AdminPartnerClient | null>(null)
   const [modalData, setModalData] = useState({ deal_amount: '', partner_reward: '', is_paid: false, payment_comment: '' })
   const [saving, setSaving] = useState(false)
@@ -67,6 +71,25 @@ export default function AdminPartnerDetailPage() {
       .then(setPartner)
       .catch(() => {})
       .finally(() => setLoading(false))
+  }
+
+  const handleToggleActive = async () => {
+    if (!partner) return
+    setSaving(true)
+    try {
+      const result = await togglePartnerActive(partner.id)
+      setToggleActiveModalOpen(false)
+      showToast(
+        result.is_active ? 'Партнёр активирован' : 'Партнёр деактивирован',
+        'success'
+      )
+      loadPartner()
+    } catch (e: any) {
+      const msg = e?.response?.data?.detail || 'Ошибка при изменении статуса'
+      showToast(msg, 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   useEffect(() => {
@@ -250,6 +273,12 @@ export default function AdminPartnerDetailPage() {
         }}>
           {partner.is_active ? 'Активен' : 'Неактивен'}
         </span>
+        <button
+          style={partner.is_active ? styles.deactivateBtn : styles.activateBtn}
+          onClick={() => setToggleActiveModalOpen(true)}
+        >
+          {partner.is_active ? 'Деактивировать' : 'Активировать'}
+        </button>
       </div>
 
       <div style={styles.infoGrid}>
@@ -594,6 +623,41 @@ export default function AdminPartnerDetailPage() {
                 disabled={saving || !(bulkData.apply_deal_amount || bulkData.apply_partner_reward || bulkData.apply_is_paid || bulkData.apply_payment_comment)}
               >
                 {saving ? 'Сохранение...' : 'Применить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toggle active modal */}
+      {toggleActiveModalOpen && (
+        <div style={styles.overlay} onClick={() => setToggleActiveModalOpen(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h3 style={styles.modalTitle}>
+              {partner.is_active ? 'Деактивация партнёра' : 'Активация партнёра'}
+            </h3>
+            <p style={{ fontSize: '14px', color: '#5f6368', margin: '0 0 8px' }}>
+              {partner.is_active
+                ? `Вы уверены, что хотите деактивировать партнёра «${partner.name}»?`
+                : `Вы уверены, что хотите активировать партнёра «${partner.name}»?`}
+            </p>
+            {partner.is_active && (
+              <p style={{ fontSize: '13px', color: '#d93025', margin: '0 0 16px' }}>
+                Деактивированный партнёр не сможет войти в систему и использовать партнёрский кабинет.
+              </p>
+            )}
+            <div style={styles.modalActions}>
+              <button style={styles.cancelBtn} onClick={() => setToggleActiveModalOpen(false)}>Отмена</button>
+              <button
+                style={partner.is_active
+                  ? { ...styles.saveBtn, background: '#d93025' }
+                  : { ...styles.saveBtn, background: '#137333' }}
+                onClick={handleToggleActive}
+                disabled={saving}
+              >
+                {saving
+                  ? 'Сохранение...'
+                  : partner.is_active ? 'Деактивировать' : 'Активировать'}
               </button>
             </div>
           </div>
@@ -953,5 +1017,25 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '12px',
     color: '#1a73e8',
     fontStyle: 'italic',
+  },
+  deactivateBtn: {
+    padding: '6px 14px',
+    fontSize: '13px',
+    color: '#d93025',
+    background: '#fce8e6',
+    border: '1px solid #f5c6c2',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: 500,
+  },
+  activateBtn: {
+    padding: '6px 14px',
+    fontSize: '13px',
+    color: '#137333',
+    background: '#e6f4ea',
+    border: '1px solid #ceead6',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: 500,
   },
 }

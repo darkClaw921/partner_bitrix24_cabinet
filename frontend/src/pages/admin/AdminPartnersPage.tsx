@@ -1,17 +1,32 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getAdminPartners, type PartnerStats } from '@/api/admin'
+import { getAdminPartners, togglePartnerActive, type PartnerStats } from '@/api/admin'
 
 export default function AdminPartnersPage() {
   const [partners, setPartners] = useState<PartnerStats[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const loadPartners = () => {
     getAdminPartners()
       .then(setPartners)
       .catch(() => {})
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadPartners()
   }, [])
+
+  const handleToggleActive = async (partner: PartnerStats) => {
+    const action = partner.is_active ? 'деактивировать' : 'активировать'
+    if (!window.confirm(`${partner.is_active ? 'Деактивировать' : 'Активировать'} партнёра «${partner.name}»?\n\n${partner.is_active ? 'Партнёр не сможет войти в систему.' : 'Партнёр снова сможет войти в систему.'}`)) return
+    try {
+      await togglePartnerActive(partner.id)
+      loadPartners()
+    } catch (e: any) {
+      alert(e?.response?.data?.detail || `Не удалось ${action} партнёра`)
+    }
+  }
 
   if (loading) return <div>Загрузка...</div>
 
@@ -62,11 +77,16 @@ export default function AdminPartnersPage() {
                   {p.reward_percentage != null ? `${p.reward_percentage}%` : <span style={{ color: '#5f6368', fontWeight: 400 }}>глоб.</span>}
                 </td>
                 <td style={styles.td}>
-                  <span style={{
-                    ...styles.badge,
-                    background: p.is_active ? '#e6f4ea' : '#fce8e6',
-                    color: p.is_active ? '#137333' : '#d93025',
-                  }}>
+                  <span
+                    style={{
+                      ...styles.badge,
+                      background: p.is_active ? '#e6f4ea' : '#fce8e6',
+                      color: p.is_active ? '#137333' : '#d93025',
+                      cursor: 'pointer',
+                    }}
+                    title={p.is_active ? 'Нажмите чтобы деактивировать' : 'Нажмите чтобы активировать'}
+                    onClick={() => handleToggleActive(p)}
+                  >
                     {p.is_active ? 'Активен' : 'Неактивен'}
                   </span>
                 </td>

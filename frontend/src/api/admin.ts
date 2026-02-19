@@ -152,6 +152,13 @@ export async function updatePartnerRewardPercentage(
   return response.data
 }
 
+export async function togglePartnerActive(
+  partnerId: number
+): Promise<{ ok: boolean; id: number; is_active: boolean }> {
+  const response = await apiClient.put(`/admin/partners/${partnerId}/toggle-active`)
+  return response.data
+}
+
 export async function getGlobalRewardPercentage(): Promise<{ default_reward_percentage: number }> {
   const response = await apiClient.get('/admin/reward-percentage')
   return response.data

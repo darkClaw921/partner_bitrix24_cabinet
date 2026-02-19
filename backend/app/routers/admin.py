@@ -192,6 +192,16 @@ async def update_partner_reward_percentage(
     }
 
 
+@router.put("/partners/{partner_id}/toggle-active")
+async def toggle_partner_active(
+    partner_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: Partner = Depends(get_admin_user),
+):
+    partner = await admin_service.toggle_partner_active(db, partner_id, admin.id)
+    return {"ok": True, "id": partner.id, "is_active": partner.is_active}
+
+
 @router.post("/notifications", response_model=NotificationResponse)
 async def create_notification(
     data: NotificationCreateRequest,
