@@ -1,0 +1,264 @@
+import { useState, useEffect, useRef, useCallback } from 'react'
+import {
+  getPartnerMessages,
+  sendPartnerMessage,
+  markPartnerMessagesRead,
+  type ChatMessage,
+} from '@/api/chat'
+
+export default function ChatPage() {
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [loading, setLoading] = useState(true)
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
+
+  const fetchMessages = useCallback(async () => {
+    try {
+      const data = await getPartnerMessages()
+      setMessages(data)
+    } catch { /* handled by interceptor */ }
+    finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => {
+    fetchMessages()
+    markPartnerMessagesRead().catch(() => {})
+  }, [fetchMessages])
+
+  // Polling every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const data = await getPartnerMessages()
+        setMessages(data)
+        markPartnerMessagesRead().catch(() => {})
+      } catch { /* ignore */ }
+    }, 30_000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Auto-scroll on new messages
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages, scrollToBottom])
+
+  const handleSend = async () => {
+    const trimmed = text.trim()
+    if (!trimmed || sending) return
+    setSending(true)
+    try {
+      const msg = await sendPartnerMessage(trimmed)
+      setMessages(prev => [...prev, msg])
+      setText('')
+    } catch { /* handled by interceptor */ }
+    finally { setSending(false) }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
+
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr)
+    return d.toLocaleString('ru-RU', {
+      day: '2-digit', month: '2-digit',
+      hour: '2-digit', minute: '2-digit',
+    })
+  }
+
+  if (loading) {
+    return <div style={styles.loading}>Загрузка...</div>
+  }
+
+  return (
+    <div style={styles.container}>
+      <div style={styles.messagesArea} ref={containerRef}>
+        {messages.length === 0 && (
+          <div style={styles.emptyState}>
+            <div style={styles.emptyIcon}>💬</div>
+            <div style={styles.emptyTitle}>Нет сообщений</div>
+            <div style={styles.emptyText}>Напишите сообщение, чтобы начать переписку с поддержкой</div>
+          </div>
+        )}
+        {messages.map(msg => (
+          <div
+            key={msg.id}
+            style={{
+              ...styles.messageRow,
+              justifyContent: msg.is_from_admin ? 'flex-start' : 'flex-end',
+            }}
+          >
+            <div
+              style={{
+                ...styles.bubble,
+                ...(msg.is_from_admin ? styles.adminBubble : styles.partnerBubble),
+              }}
+            >
+              {msg.is_from_admin && (
+                <div style={styles.senderName}>{msg.sender_name}</div>
+              )}
+              <div style={styles.messageText}>{msg.message}</div>
+              <div style={{
+                ...styles.messageTime,
+                color: msg.is_from_admin ? '#5f6368' : 'rgba(255,255,255,0.7)',
+              }}>
+                {formatTime(msg.created_at)}
+              </div>
+            </div>
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div style={styles.inputArea}>
+        <textarea
+          style={styles.input}
+          placeholder="Введите сообщение..."
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={handleKeyDown}
+          rows={1}
+          disabled={sending}
+        />
+        <button
+          style={{
+            ...styles.sendBtn,
+            opacity: (!text.trim() || sending) ? 0.5 : 1,
+          }}
+          onClick={handleSend}
+          disabled={!text.trim() || sending}
+        >
+          <SendIcon />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function SendIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  )
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: 'calc(100vh - 80px)',
+    maxWidth: 800,
+    margin: '0 auto',
+    background: '#fff',
+    borderRadius: 12,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    overflow: 'hidden',
+  },
+  loading: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 200,
+    color: '#5f6368',
+  },
+  messagesArea: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '20px 16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  emptyState: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+    color: '#5f6368',
+  },
+  emptyIcon: { fontSize: 48, marginBottom: 16 },
+  emptyTitle: { fontSize: 18, fontWeight: 600, marginBottom: 8 },
+  emptyText: { fontSize: 14, textAlign: 'center' as const },
+  messageRow: {
+    display: 'flex',
+    width: '100%',
+  },
+  bubble: {
+    maxWidth: '70%',
+    padding: '10px 14px',
+    borderRadius: 16,
+    wordBreak: 'break-word' as const,
+  },
+  adminBubble: {
+    background: '#f1f3f4',
+    color: '#202124',
+    borderBottomLeftRadius: 4,
+  },
+  partnerBubble: {
+    background: '#1a73e8',
+    color: '#fff',
+    borderBottomRightRadius: 4,
+  },
+  senderName: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: '#1a73e8',
+    marginBottom: 4,
+  },
+  messageText: {
+    fontSize: 14,
+    lineHeight: '1.5',
+    whiteSpace: 'pre-wrap' as const,
+  },
+  messageTime: {
+    fontSize: 11,
+    marginTop: 4,
+    textAlign: 'right' as const,
+  },
+  inputArea: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '12px 16px',
+    borderTop: '1px solid #e0e0e0',
+    background: '#fafafa',
+  },
+  input: {
+    flex: 1,
+    border: '1px solid #dadce0',
+    borderRadius: 20,
+    padding: '10px 16px',
+    fontSize: 14,
+    outline: 'none',
+    resize: 'none' as const,
+    fontFamily: 'inherit',
+    lineHeight: '1.4',
+    maxHeight: 120,
+    overflowY: 'auto' as const,
+  },
+  sendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: '50%',
+    border: 'none',
+    background: '#1a73e8',
+    color: '#fff',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+}

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ landing.title }}</title>
+    <style>
+        :root {
+            --theme-color: {{ landing.theme_color }};
+            --theme-color-hover: {{ landing.theme_color }}cc;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #202124;
+            background: #f5f5f5;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: var(--theme-color);
+            color: #fff;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        /* Slider */
+        .slider {
+            position: relative;
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            margin-bottom: 32px;
+        }
+
+        .slider-track {
+            display: flex;
+            transition: transform 0.3s ease;
+        }
+
+        .slider-slide {
+            min-width: 100%;
+            aspect-ratio: 16/9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f1f3f4;
+        }
+
+        .slider-slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .slider-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255,255,255,0.9);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #202124;
+        }
+
+        .slider-btn:hover {
+            background: #fff;
+        }
+
+        .slider-prev { left: 12px; }
+        .slider-next { right: 12px; }
+
+        .slider-dots {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 0;
+            background: #fff;
+        }
+
+        .slider-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: none;
+            background: #dadce0;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .slider-dot.active {
+            background: var(--theme-color);
+        }
+
+        /* Description */
+        .description {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            font-size: 16px;
+            white-space: pre-line;
+        }
+
+        /* Form */
+        .form-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 32px 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            margin-bottom: 32px;
+        }
+
+        .form-section h2 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .form-field {
+            margin-bottom: 16px;
+        }
+
+        .form-field label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #5f6368;
+        }
+
+        .form-field input,
+        .form-field textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #dadce0;
+            border-radius: 6px;
+            font-size: 16px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-field input:focus,
+        .form-field textarea:focus {
+            border-color: var(--theme-color);
+        }
+
+        .form-field textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-submit {
+            width: 100%;
+            padding: 14px;
+            background: var(--theme-color);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            margin-top: 8px;
+        }
+
+        .form-submit:hover {
+            opacity: 0.9;
+        }
+
+        .form-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .form-message {
+            text-align: center;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .form-message.success {
+            background: #e6f4ea;
+            color: #1e8e3e;
+        }
+
+        .form-message.error {
+            background: #fce8e6;
+            color: #d93025;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 24px;
+            color: #5f6368;
+            font-size: 13px;
+        }
+
+        @media (max-width: 600px) {
+            .header { padding: 28px 16px; }
+            .header h1 { font-size: 22px; }
+            .container { padding: 20px 16px; }
+            .form-section { padding: 24px 16px; }
+            .slider-btn { width: 32px; height: 32px; font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ landing.header_text }}</h1>
+    </div>
+
+    <div class="container">
+        {% if images %}
+        <div class="slider" id="slider">
+            <div class="slider-track" id="sliderTrack">
+                {% for image in images %}
+                <div class="slider-slide">
+                    <img src="/uploads/{{ image.file_path }}" alt="Изображение {{ loop.index }}">
+                </div>
+                {% endfor %}
+            </div>
+            {% if images | length > 1 %}
+            <button class="slider-btn slider-prev" onclick="slideMove(-1)">&larr;</button>
+            <button class="slider-btn slider-next" onclick="slideMove(1)">&rarr;</button>
+            <div class="slider-dots" id="sliderDots">
+                {% for image in images %}
+                <button class="slider-dot{% if loop.first %} active{% endif %}" onclick="slideTo({{ loop.index0 }})"></button>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="description">{{ landing.description }}</div>
+
+        <div class="form-section">
+            <h2>Оставить заявку</h2>
+            <form id="crmForm">
+                <div class="form-field">
+                    <label for="name">Имя *</label>
+                    <input type="text" id="name" name="name" required placeholder="Ваше имя">
+                </div>
+                <div class="form-field">
+                    <label for="phone">Телефон</label>
+                    <input type="tel" id="phone" name="phone" placeholder="+7 (___) ___-__-__">
+                </div>
+                <div class="form-field">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" placeholder="email@example.com">
+                </div>
+                <div class="form-field">
+                    <label for="company">Компания</label>
+                    <input type="text" id="company" name="company" placeholder="Название компании">
+                </div>
+                <div class="form-field">
+                    <label for="comment">Комментарий</label>
+                    <textarea id="comment" name="comment" placeholder="Дополнительная информация"></textarea>
+                </div>
+                <button type="submit" class="form-submit" id="submitBtn">{{ landing.button_text }}</button>
+                <div id="formMessage" class="form-message" style="display:none;"></div>
+            </form>
+        </div>
+    </div>
+
+    <div class="footer">
+        Партнёрский портал Битрикс24
+    </div>
+
+    <script>
+        // Slider
+        let currentSlide = 0;
+        const track = document.getElementById('sliderTrack');
+        const dots = document.querySelectorAll('.slider-dot');
+        const totalSlides = dots.length || 1;
+
+        function slideTo(index) {
+            currentSlide = index;
+            if (currentSlide < 0) currentSlide = totalSlides - 1;
+            if (currentSlide >= totalSlides) currentSlide = 0;
+            if (track) {
+                track.style.transform = 'translateX(-' + (currentSlide * 100) + '%)';
+            }
+            dots.forEach(function(dot, i) {
+                dot.classList.toggle('active', i === currentSlide);
+            });
+        }
+
+        function slideMove(dir) {
+            slideTo(currentSlide + dir);
+        }
+
+        // Form
+        var form = document.getElementById('crmForm');
+        var submitBtn = document.getElementById('submitBtn');
+        var msgEl = document.getElementById('formMessage');
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            var name = document.getElementById('name').value.trim();
+            var phone = document.getElementById('phone').value.trim();
+            var email = document.getElementById('email').value.trim();
+
+            if (!name) {
+                showMessage('Укажите имя', 'error');
+                return;
+            }
+            if (!phone && !email) {
+                showMessage('Укажите телефон или email', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Отправка...';
+
+            var data = {
+                name: name,
+                phone: phone,
+                email: email,
+                company: document.getElementById('company').value.trim(),
+                comment: document.getElementById('comment').value.trim()
+            };
+
+            fetch('/api/public/form/{{ link_code }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(function(response) {
+                if (!response.ok) throw new Error('Ошибка сервера');
+                return response.json();
+            })
+            .then(function() {
+                showMessage('Заявка отправлена!', 'success');
+                form.reset();
+            })
+            .catch(function() {
+                showMessage('Произошла ошибка. Попробуйте позже.', 'error');
+            })
+            .finally(function() {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '{{ landing.button_text }}';
+            });
+        });
+
+        function showMessage(text, type) {
+            msgEl.textContent = text;
+            msgEl.className = 'form-message ' + type;
+            msgEl.style.display = 'block';
+            setTimeout(function() { msgEl.style.display = 'none'; }, 5000);
+        }
+    </script>
+</body>
+</html>
