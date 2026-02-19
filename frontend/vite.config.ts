@@ -20,11 +20,11 @@ export default defineConfig({
         rewrite: (p: string) => p.replace(/^\/b24/, ''),
       },
       '/api': {
-        target: 'http://backend:8000',
+        target: 'http://backend:8003',
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'http://backend:8000',
+        target: 'http://backend:8003',
         changeOrigin: true,
       },
       '/b24': {

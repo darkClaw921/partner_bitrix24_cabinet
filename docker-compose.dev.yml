@@ -37,7 +37,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "8003:8003"
     volumes:
       - ./backend:/app
       - ./data:/app/data
@@ -57,7 +57,7 @@ services:
       - ADMIN_EMAIL=${BACKEND_ADMIN_EMAIL:-admin@partner-cabinet.com}
       - ADMIN_PASSWORD=${BACKEND_ADMIN_PASSWORD:-admin123456}
       - B24_SERVICE_FRONTEND_URL=${BACKEND_B24_SERVICE_FRONTEND_URL:-/b24/}
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8003 --reload
     depends_on:
       - b24-service
 

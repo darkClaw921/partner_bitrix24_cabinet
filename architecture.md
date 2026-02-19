@@ -16,7 +16,7 @@
 
 ```
 partner_bitrix24_cabinet/
-├── docker-compose.dev.yml          # Docker Compose (backend:8000, frontend:5173, b24-service:7860, b24-frontend:3000)
+├── docker-compose.dev.yml          # Docker Compose (backend:8003, frontend:5173, b24-service:7860, b24-frontend:3000)
 ├── architecture.md                 # Описание архитектуры проекта
 ├── data/                           # Директория для SQLite БД (volume)
 │   └── app.db                      # Файл БД (создаётся автоматически)
@@ -446,9 +446,9 @@ partner_bitrix24_cabinet/
 - **docker-compose.dev.yml** — четыре сервиса (b24-service, b24-frontend, backend, frontend) в одной сети
 - **b24-service:** b24-transfer-lead API, порт 7860 (только внутри docker-сети), volume b24-data для SQLite и workflows
 - **b24-frontend:** b24-transfer-lead UI (Vite dev server), порт 3000 (только внутри docker-сети), base=/b24/, проксируется через frontend Vite
-- **Backend:** порт 8000, volume ./backend:/app и ./data:/app/data, depends_on b24-service
+- **Backend:** порт 8003, volume ./backend:/app и ./data:/app/data, depends_on b24-service
   - Env: DATABASE_URL, SECRET_KEY, CORS_ORIGINS, B24_SERVICE_URL, B24_INTERNAL_API_KEY, B24_WEBHOOK_URL, B24_ENTITY_TYPE, B24_DEAL_CATEGORY_ID, B24_DEAL_STAGE_ID, B24_LEAD_STATUS_ID, B24_FIELD_MAPPINGS, DEFAULT_REWARD_PERCENTAGE, ADMIN_EMAIL, ADMIN_PASSWORD, B24_SERVICE_FRONTEND_URL
-- **Frontend:** порт 5173, proxy /api → backend:8000, depends_on backend
+- **Frontend:** порт 5173, proxy /api → backend:8003, depends_on backend
 - **SQLite:** файл data/app.db, персистентность через Docker volume
 - **Uploads:** директория backend/uploads для загруженных изображений лендингов
 
