@@ -303,16 +303,16 @@ async def proxy_b24_webhook(
                         )
                         admin = admin_result.scalar_one_or_none()
                         if admin:
-                            msg_parts = [f"Сделка по клиенту {client_obj.name} успешно закрыта!"]
+                            client_name = client_obj.name or "—"
+                            msg_parts = [f"Клиент: {client_name}"]
                             if client_obj.deal_amount and client_obj.deal_amount > 0:
-                                msg_parts.append(f"Сумма сделки: {client_obj.deal_amount:,.2f} руб.")
+                                msg_parts.append(f"Сумма: {client_obj.deal_amount:,.0f} ₽")
                             if partner_reward is not None and partner_reward > 0:
-                                msg_parts.append(f"Ваше вознаграждение: {partner_reward:,.2f} руб.")
-                            msg_parts.append("Вы можете запросить выплату.")
+                                msg_parts.append(f"Комиссия: {partner_reward:,.0f} ₽")
 
                             notification = Notification(
                                 title="Сделка успешно закрыта",
-                                message=" ".join(msg_parts),
+                                message="\n".join(msg_parts),
                                 created_by=admin.id,
                                 target_partner_id=client_obj.partner_id,
                             )

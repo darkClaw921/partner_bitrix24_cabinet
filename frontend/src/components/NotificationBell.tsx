@@ -231,8 +231,9 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     display: '-webkit-box',
-    WebkitLineClamp: 2,
+    WebkitLineClamp: 4,
     WebkitBoxOrient: 'vertical' as const,
+    whiteSpace: 'pre-line' as const,
   },
   notificationDate: {
     fontSize: '11px',
