@@ -34,5 +34,6 @@ class PartnerResponse(BaseModel):
     role: str = "partner"
     created_at: datetime
     is_active: bool
+    approval_status: str = "pending"
 
     model_config = {"from_attributes": True}

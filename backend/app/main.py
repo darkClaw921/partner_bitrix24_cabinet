@@ -9,7 +9,7 @@ from app.database import Base, engine
 from app.models import *  # noqa: F401,F403
 from app.routers import admin, analytics, auth, bitrix_settings, chat, clients, landings, links, notifications, payment_requests, public, reports
 from app.utils.create_admin import ensure_admin_exists
-from app.utils.migrate_db import migrate_chat_messages_table, migrate_client_deal_status_fields, migrate_client_payment_fields, migrate_link_utm_fields, migrate_notification_target_partner, migrate_partner_b24_fields, migrate_partner_reward_percentage, migrate_partner_role_field
+from app.utils.migrate_db import migrate_chat_messages_table, migrate_client_deal_status_fields, migrate_client_payment_fields, migrate_link_utm_fields, migrate_notification_target_partner, migrate_partner_approval_fields, migrate_partner_b24_fields, migrate_partner_reward_percentage, migrate_partner_role_field
 
 
 @asynccontextmanager
@@ -24,6 +24,7 @@ async def lifespan(app: FastAPI):
     migrate_notification_target_partner()
     migrate_client_deal_status_fields()
     migrate_chat_messages_table()
+    migrate_partner_approval_fields()
     ensure_admin_exists()
     yield
 

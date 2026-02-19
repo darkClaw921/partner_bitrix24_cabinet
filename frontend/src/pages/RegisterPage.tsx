@@ -22,7 +22,7 @@ export default function RegisterPage() {
     setLoading(true)
     try {
       await register({ email, password, name, company: company || undefined })
-      navigate('/login', { state: { message: 'Регистрация успешна' } })
+      navigate('/login', { state: { message: 'Заявка на регистрацию отправлена. Ожидайте одобрения администратором.' } })
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'response' in err) {
         const axiosErr = err as { response?: { data?: { detail?: string } } }

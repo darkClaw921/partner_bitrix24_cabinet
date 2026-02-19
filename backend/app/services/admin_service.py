@@ -1,5 +1,7 @@
+import logging
 from datetime import datetime
 
+from fastapi import HTTPException, status
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,7 +18,11 @@ from app.schemas.admin import (
     ClientPaymentUpdateRequest,
     PartnerPaymentSummaryResponse,
     PartnerStatsResponse,
+    RegistrationRequestResponse,
 )
+from app.services.auth_service import create_partner_workflow
+
+logger = logging.getLogger(__name__)
 
 
 def _get_effective_reward_percentage(partner: Partner) -> float:
@@ -355,4 +361,56 @@ async def update_partner_reward_percentage(
     partner.reward_percentage = reward_percentage
     await db.commit()
     await db.refresh(partner)
+    return partner
+
+
+async def get_pending_registrations(db: AsyncSession) -> list[RegistrationRequestResponse]:
+    result = await db.execute(
+        select(Partner)
+        .where(Partner.approval_status == "pending", Partner.role == "partner")
+        .order_by(Partner.created_at.desc())
+    )
+    partners = result.scalars().all()
+    return [RegistrationRequestResponse.model_validate(p) for p in partners]
+
+
+async def get_pending_registrations_count(db: AsyncSession) -> int:
+    result = await db.execute(
+        select(func.count(Partner.id))
+        .where(Partner.approval_status == "pending", Partner.role == "partner")
+    )
+    return result.scalar() or 0
+
+
+async def approve_registration(db: AsyncSession, partner_id: int) -> Partner:
+    result = await db.execute(select(Partner).where(Partner.id == partner_id))
+    partner = result.scalar_one_or_none()
+    if not partner:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Партнёр не найден")
+    if partner.approval_status != "pending":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Заявка уже обработана")
+
+    partner.approval_status = "approved"
+    partner.is_active = True
+    await db.commit()
+    await db.refresh(partner)
+
+    await create_partner_workflow(db, partner)
+
+    return partner
+
+
+async def reject_registration(db: AsyncSession, partner_id: int, reason: str | None = None) -> Partner:
+    result = await db.execute(select(Partner).where(Partner.id == partner_id))
+    partner = result.scalar_one_or_none()
+    if not partner:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Партнёр не найден")
+    if partner.approval_status != "pending":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Заявка уже обработана")
+
+    partner.approval_status = "rejected"
+    partner.rejection_reason = reason
+    await db.commit()
+    await db.refresh(partner)
+
     return partner

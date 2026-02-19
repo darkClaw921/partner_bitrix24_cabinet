@@ -25,6 +25,7 @@ import PaymentRequestsPage from '@/pages/PaymentRequestsPage'
 import ReportsPage from '@/pages/ReportsPage'
 import AdminReportsPage from '@/pages/admin/AdminReportsPage'
 import ChatPage from '@/pages/ChatPage'
+import AdminRegistrationsPage from '@/pages/admin/AdminRegistrationsPage'
 import AdminChatPage from '@/pages/admin/AdminChatPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 
@@ -41,6 +42,7 @@ function App() {
             {/* Admin routes */}
             <Route element={<AdminProtectedRoute><AdminLayout /></AdminProtectedRoute>}>
               <Route path="/admin" element={<AdminDashboardPage />} />
+              <Route path="/admin/registrations" element={<AdminRegistrationsPage />} />
               <Route path="/admin/partners" element={<AdminPartnersPage />} />
               <Route path="/admin/partners/:id" element={<AdminPartnerDetailPage />} />
               <Route path="/admin/notifications" element={<AdminNotificationsPage />} />

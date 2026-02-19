@@ -27,6 +27,7 @@ export interface Partner {
   role: string
   created_at: string
   is_active: boolean
+  approval_status: string
 }
 
 export async function register(data: RegisterData): Promise<Partner> {

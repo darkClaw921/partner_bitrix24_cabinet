@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 
 export default function LoginPage() {
@@ -9,6 +9,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const infoMessage = (location.state as { message?: string } | null)?.message || ''
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -17,8 +19,17 @@ export default function LoginPage() {
     try {
       const me = await login(email, password)
       navigate(me.role === 'admin' ? '/admin' : '/dashboard')
-    } catch {
-      setError('Неверный email или пароль')
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosErr = err as { response?: { status?: number; data?: { detail?: string } } }
+        if (axiosErr.response?.status === 403) {
+          setError(axiosErr.response.data?.detail || 'Доступ запрещён')
+        } else {
+          setError('Неверный email или пароль')
+        }
+      } else {
+        setError('Неверный email или пароль')
+      }
     } finally {
       setLoading(false)
     }
@@ -28,6 +39,7 @@ export default function LoginPage() {
     <div style={styles.wrapper}>
       <div style={styles.card}>
         <h1 style={styles.title}>Вход</h1>
+        {infoMessage && <div style={styles.info}>{infoMessage}</div>}
         {error && <div style={styles.error}>{error}</div>}
         <form onSubmit={handleSubmit}>
           <div style={styles.field}>
@@ -84,6 +96,14 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '24px',
     fontSize: '24px',
     textAlign: 'center' as const,
+  },
+  info: {
+    background: '#e8f0fe',
+    color: '#1a73e8',
+    padding: '10px 14px',
+    borderRadius: '6px',
+    marginBottom: '16px',
+    fontSize: '14px',
   },
   error: {
     background: '#fce8e6',

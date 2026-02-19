@@ -161,6 +161,27 @@ def migrate_chat_messages_table() -> None:
         logger.error("Migration (chat_messages) failed: %s", e)
 
 
+def migrate_partner_approval_fields() -> None:
+    db_path = _get_sync_db_path()
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        if not _column_exists(cursor, "partners", "approval_status"):
+            cursor.execute("ALTER TABLE partners ADD COLUMN approval_status VARCHAR(20) DEFAULT 'pending'")
+            cursor.execute("UPDATE partners SET approval_status = 'approved'")
+            logger.info("Added approval_status column to partners (existing set to approved)")
+
+        if not _column_exists(cursor, "partners", "rejection_reason"):
+            cursor.execute("ALTER TABLE partners ADD COLUMN rejection_reason VARCHAR(1000)")
+            logger.info("Added rejection_reason column to partners")
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error("Migration (partner approval fields) failed: %s", e)
+
+
 def migrate_partner_b24_fields() -> None:
     db_path = _get_sync_db_path()
     try:

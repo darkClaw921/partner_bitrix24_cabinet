@@ -35,9 +35,9 @@ def ensure_admin_exists() -> None:
             password_hash = hash_password(settings.ADMIN_PASSWORD)
             partner_code = uuid.uuid4().hex[:8]
             cursor.execute(
-                "INSERT INTO partners (email, password_hash, name, company, partner_code, role, is_active, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (settings.ADMIN_EMAIL, password_hash, "Admin", "System", partner_code, "admin", 1, datetime.utcnow().isoformat()),
+                "INSERT INTO partners (email, password_hash, name, company, partner_code, role, is_active, approval_status, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (settings.ADMIN_EMAIL, password_hash, "Admin", "System", partner_code, "admin", 1, "approved", datetime.utcnow().isoformat()),
             )
             logger.info("Admin account created: %s", settings.ADMIN_EMAIL)
         elif row[1] != "admin":

@@ -3,10 +3,12 @@ import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { getPendingCount } from '@/api/paymentRequests'
 import { getAdminChatUnreadCount } from '@/api/chat'
+import { getPendingRegistrationsCount } from '@/api/admin'
 import './Layout.css'
 
 const ADMIN_NAV_ITEMS = [
   { to: '/admin', label: 'Обзор', icon: DashboardIcon, end: true },
+  { to: '/admin/registrations', label: 'Заявки', icon: RegistrationIcon, badge: 'registrations' as const },
   { to: '/admin/partners', label: 'Партнёры', icon: UsersIcon },
   { to: '/admin/reports', label: 'Отчёты', icon: ReportIcon },
   { to: '/admin/payment-requests', label: 'Запросы на выплату', icon: WalletIcon, badge: 'payment' as const },
@@ -17,6 +19,7 @@ const ADMIN_NAV_ITEMS = [
 
 const PAGE_TITLES: Record<string, string> = {
   '/admin': 'Панель администратора',
+  '/admin/registrations': 'Заявки на регистрацию',
   '/admin/partners': 'Партнёры',
   '/admin/reports': 'Отчёты',
   '/admin/payment-requests': 'Запросы на выплату',
@@ -37,6 +40,7 @@ export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pendingBadge, setPendingBadge] = useState(0)
   const [chatBadge, setChatBadge] = useState(0)
+  const [registrationsBadge, setRegistrationsBadge] = useState(0)
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), [])
 
@@ -49,12 +53,14 @@ export default function AdminLayout() {
   useEffect(() => {
     const fetchBadges = async () => {
       try {
-        const [pending, chat] = await Promise.all([
+        const [pending, chat, registrations] = await Promise.all([
           getPendingCount(),
           getAdminChatUnreadCount(),
+          getPendingRegistrationsCount(),
         ])
         setPendingBadge(pending)
         setChatBadge(chat)
+        setRegistrationsBadge(registrations)
       } catch { /* ignore */ }
     }
     fetchBadges()
@@ -84,6 +90,9 @@ export default function AdminLayout() {
             >
               <Icon />
               {label}
+              {badge === 'registrations' && registrationsBadge > 0 && (
+                <span style={badgeStyle}>{registrationsBadge}</span>
+              )}
               {badge === 'payment' && pendingBadge > 0 && (
                 <span style={badgeStyle}>{pendingBadge}</span>
               )}
@@ -160,6 +169,17 @@ function WalletIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
       <line x1="1" y1="10" x2="23" y2="10" />
+    </svg>
+  )
+}
+
+function RegistrationIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="8.5" cy="7" r="4" />
+      <line x1="20" y1="8" x2="20" y2="14" />
+      <line x1="23" y1="11" x2="17" y2="11" />
     </svg>
   )
 }

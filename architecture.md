@@ -55,7 +55,7 @@ partner_bitrix24_cabinet/
 │       ├── dependencies.py         # FastAPI Depends: get_db(), get_current_user() (JWT + OAuth2), get_admin_user() (role check)
 │       ├── models/
 │       │   ├── __init__.py         # Реэкспорт всех моделей для Alembic
-│       │   ├── partner.py          # Partner — партнёр (email, password_hash, partner_code, role, reward_percentage, workflow_id, b24_api_token)
+│       │   ├── partner.py          # Partner — партнёр (email, password_hash, partner_code, role, reward_percentage, workflow_id, b24_api_token, approval_status, rejection_reason)
 │       │   ├── link.py             # PartnerLink — партнёрская ссылка (link_type, link_code, target_url, utm_source, utm_medium, utm_campaign, utm_content, utm_term)
 │       │   ├── click.py            # LinkClick — клик по ссылке (ip_address, user_agent, referer)
 │       │   ├── client.py           # Client — клиент (source, name, phone, email, webhook_sent, deal_amount, partner_reward, is_paid, paid_at, payment_comment, deal_status, deal_status_name)
@@ -70,7 +70,7 @@ partner_bitrix24_cabinet/
 │       │   ├── client.py           # ClientCreateRequest, ClientResponse (с deal_amount, partner_reward, is_paid, deal_status, deal_status_name), PublicFormRequest
 │       │   ├── landing.py          # LandingCreateRequest, LandingUpdateRequest, LandingImageResponse, LandingResponse
 │       │   ├── analytics.py        # SummaryResponse, LinkStatsResponse, BitrixStatsResponse
-│       │   ├── admin.py            # ClientPaymentUpdateRequest, PartnerPaymentSummaryResponse, AdminOverviewResponse, PartnerStatsResponse, AdminPartnerDetailResponse, AdminConfigResponse, PartnerRewardPercentageUpdateRequest, GlobalRewardPercentageResponse, GlobalRewardPercentageUpdateRequest
+│       │   ├── admin.py            # ClientPaymentUpdateRequest, PartnerPaymentSummaryResponse, AdminOverviewResponse, PartnerStatsResponse, AdminPartnerDetailResponse, AdminConfigResponse, PartnerRewardPercentageUpdateRequest, GlobalRewardPercentageResponse, GlobalRewardPercentageUpdateRequest, RegistrationRequestResponse, RejectRegistrationRequest
 │       │   ├── notification.py     # NotificationCreateRequest, NotificationResponse, PartnerNotificationResponse, UnreadCountResponse
 │       │   ├── payment_request.py  # PaymentRequestCreate, PaymentRequestResponse, PaymentRequestAdminAction, PendingCountResponse
 │       │   ├── chat.py             # ChatMessageSend, ChatMessageResponse, ChatConversationPreview, ChatUnreadCountResponse
@@ -83,7 +83,7 @@ partner_bitrix24_cabinet/
 │       │   ├── landings.py         # CRUD /api/landings
 │       │   ├── analytics.py        # GET /api/analytics/summary, /links, /clients/stats; POST /bitrix/fetch
 │       │   ├── bitrix_settings.py  # POST /api/bitrix/setup, GET|PUT /settings, GET /funnels, /stages, /lead-statuses, /leads, /stats
-│       │   ├── admin.py            # GET /api/admin/overview, /partners, /partners/{id}, /config, /partners/{id}/payments, /reward-percentage; PUT /api/admin/clients/{id}/payment, /partners/{id}/reward-percentage, /reward-percentage; POST|GET|DELETE /api/admin/notifications
+│       │   ├── admin.py            # GET /api/admin/overview, /partners, /partners/{id}, /config, /partners/{id}/payments, /reward-percentage, /registrations, /registrations/count; POST /registrations/{id}/approve, /registrations/{id}/reject; PUT /api/admin/clients/{id}/payment, /partners/{id}/reward-percentage, /reward-percentage; POST|GET|DELETE /api/admin/notifications
 │       │   ├── notifications.py    # GET /api/notifications/, /unread-count; POST /notifications/{id}/read, /read-all
 │       │   ├── payment_requests.py # POST|GET /api/payment-requests; GET /api/payment-requests/{id}; GET|PUT /api/admin/payment-requests; GET /api/admin/payment-requests/pending-count
 │       │   ├── chat.py             # GET|POST /api/chat/messages, GET /api/chat/unread-count, POST /api/chat/read; GET /api/admin/chat/conversations, GET|POST /api/admin/chat/conversations/{id}/messages, GET /api/admin/chat/unread-count, POST /api/admin/chat/conversations/{id}/read
@@ -91,14 +91,14 @@ partner_bitrix24_cabinet/
 │       │   └── public.py           # Публичные: GET /r/{code} (с UTM-параметрами), /landing/{code}, POST /form/{code}, POST /webhook/b24 (прокси + обновление deal_status + авто-расчёт deal_amount/partner_reward из opportunity + уведомление с суммой и комиссией)
 │       ├── services/
 │       │   ├── __init__.py
-│       │   ├── auth_service.py     # register_partner(), login_partner(), refresh_tokens()
+│       │   ├── auth_service.py     # register_partner(), login_partner(), refresh_tokens(), create_partner_workflow()
 │       │   ├── link_service.py     # create_link(), get_links(), get_link(), update_link(), delete_link(), get_embed_code(), _build_url_with_utm()
 │       │   ├── client_service.py   # create_client_manual(), create_client_from_form()
 │       │   ├── external_api.py     # send_client_webhook(), fetch_bitrix_stats(), check_client_status()
 │       │   ├── b24_integration_service.py # HTTP-клиент для b24-transfer-lead (httpx, X-Internal-API-Key)
 │       │   ├── landing_service.py  # create_landing(), get_landings(), update_landing(), delete_landing()
 │       │   ├── analytics_service.py # get_summary(), get_links_stats(), get_bitrix_stats()
-│       │   ├── admin_service.py    # get_admin_overview(), get_partners_stats(), get_partner_detail(), update_client_payment() (авто-расчёт partner_reward), bulk_update_client_payments(), get_partner_payment_summary(), update_partner_reward_percentage(), _get_effective_reward_percentage()
+│       │   ├── admin_service.py    # get_admin_overview(), get_partners_stats(), get_partner_detail(), update_client_payment() (авто-расчёт partner_reward), bulk_update_client_payments(), get_partner_payment_summary(), update_partner_reward_percentage(), _get_effective_reward_percentage(), get_pending_registrations(), get_pending_registrations_count(), approve_registration(), reject_registration()
 │       │   ├── notification_service.py # create_notification(), get_all_notifications(), delete_notification(), get_partner_notifications() (фильтрация по target_partner_id), get_unread_count(), mark_as_read(), mark_all_as_read()
 │       │   ├── payment_request_service.py # create_payment_request(), get_pending_count(), get_partner_requests(), get_all_requests(), get_request_detail(), process_request()
 │       │   ├── chat_service.py    # send_message_partner(), get_partner_messages(), get_partner_unread_count(), mark_partner_messages_read(), get_conversations(), get_conversation_messages(), send_message_admin(), get_admin_total_unread_count(), mark_admin_messages_read()
@@ -106,7 +106,7 @@ partner_bitrix24_cabinet/
 │       │   └── pdf_service.py     # generate_partner_report_pdf(), generate_all_partners_report_pdf() — генерация PDF через fpdf2 с DejaVu шрифтами
 │       └── utils/
 │           ├── __init__.py
-│           ├── migrate_db.py       # migrate_partner_b24_fields(), migrate_partner_role_field(), migrate_client_payment_fields(), migrate_partner_reward_percentage(), migrate_link_utm_fields(), migrate_notification_target_partner(), migrate_client_deal_status_fields(), migrate_chat_messages_table()
+│           ├── migrate_db.py       # migrate_partner_b24_fields(), migrate_partner_role_field(), migrate_client_payment_fields(), migrate_partner_reward_percentage(), migrate_link_utm_fields(), migrate_notification_target_partner(), migrate_client_deal_status_fields(), migrate_chat_messages_table(), migrate_partner_approval_fields()
 │           ├── create_admin.py     # ensure_admin_exists() — создание/обновление админа из env vars при старте
 │           └── security.py         # hash_password(), verify_password(), create_access/refresh_token()
 └── frontend/
@@ -130,7 +130,7 @@ partner_bitrix24_cabinet/
         │   ├── landings.ts         # getLandings(), createLanding(), updateLanding(), deleteLanding()
         │   ├── analytics.ts        # getSummary(), getLinksStats(), fetchBitrixStats()
         │   ├── bitrix.ts           # setupBitrix(), getBitrixSettings(), updateBitrixSettings(), getFunnels(), getStages(), getLeads(), getStats()
-        │   ├── admin.ts            # getAdminOverview(), getAdminPartners(), getAdminPartnerDetail(), getAdminConfig(), updateClientPayment(), getPartnerPaymentSummary(), updatePartnerRewardPercentage(), getGlobalRewardPercentage(), updateGlobalRewardPercentage(), createNotification(), getAdminNotifications(), deleteNotification()
+        │   ├── admin.ts            # getAdminOverview(), getAdminPartners(), getAdminPartnerDetail(), getAdminConfig(), updateClientPayment(), getPartnerPaymentSummary(), updatePartnerRewardPercentage(), getGlobalRewardPercentage(), updateGlobalRewardPercentage(), createNotification(), getAdminNotifications(), deleteNotification(), getPendingRegistrations(), getPendingRegistrationsCount(), approveRegistration(), rejectRegistration()
         │   ├── notifications.ts    # getNotifications(), getUnreadCount(), markAsRead(), markAllAsRead()
         │   ├── paymentRequests.ts  # createPaymentRequest(), getPartnerPaymentRequests(), getPartnerPaymentRequest(), getAdminPaymentRequests(), getAdminPaymentRequest(), processPaymentRequest(), getPendingCount()
         │   ├── chat.ts             # getPartnerMessages(), sendPartnerMessage(), getPartnerUnreadCount(), markPartnerMessagesRead(), getAdminConversations(), getAdminConversationMessages(), sendAdminMessage(), getAdminChatUnreadCount(), markAdminMessagesRead()
@@ -145,7 +145,7 @@ partner_bitrix24_cabinet/
         ├── components/
         │   ├── Layout.tsx          # Sidebar (навигация партнёра + пункты «Отчёты», «Выплаты», «Чат» с badge), Header с NotificationBell, Content
         │   ├── Layout.css          # Стили Layout: sidebar, header, responsive
-        │   ├── AdminLayout.tsx     # Sidebar (навигация админа: Обзор, Партнёры, Отчёты, Запросы на выплату с badge, Чат с badge, Уведомления, B24 Transfer Lead)
+        │   ├── AdminLayout.tsx     # Sidebar (навигация админа: Обзор, Заявки с badge, Партнёры, Отчёты, Запросы на выплату с badge, Чат с badge, Уведомления, B24 Transfer Lead)
         │   ├── DateRangePicker.tsx # Компонент выбора периода (два input[date] + пресеты: Сегодня, Неделя, Месяц, Квартал, Год, Всё время)
         │   ├── ProtectedRoute.tsx   # Редирект на /login если не аутентифицирован
         │   ├── AdminProtectedRoute.tsx # Проверка isAdmin, редирект на /dashboard если не админ
@@ -178,6 +178,7 @@ partner_bitrix24_cabinet/
                 ├── AdminPartnerDetailPage.tsx # Детальная информация об одном партнёре (ссылки, клиенты)
                 ├── AdminNotificationsPage.tsx # Создание и управление уведомлениями для партнёров
                 ├── AdminReportsPage.tsx      # Сводный отчёт админа: DateRangePicker, выбор партнёра, StatsCard-метрики, таблица по партнёрам, скачать PDF
+                ├── AdminRegistrationsPage.tsx    # Управление заявками на регистрацию: таблица pending-заявок, одобрение/отклонение с причиной
                 ├── AdminPaymentRequestsPage.tsx # Управление запросами на выплату: таблица, фильтр по статусу, одобрение/отклонение
                 ├── AdminChatPage.tsx         # Двухпанельный чат админа: список переписок слева, сообщения справа, поллинг 30с
                 └── AdminB24Page.tsx          # B24 Transfer Lead в iframe внутри админ-панели
@@ -186,7 +187,7 @@ partner_bitrix24_cabinet/
 ## Модели данных
 
 ### Partner (partners)
-Партнёр или администратор системы. Поля: email, password_hash, name, company, partner_code (uuid[:8]), role ("partner" | "admin"), is_active, reward_percentage (nullable, индивидуальный % вознаграждения), workflow_id, b24_api_token.
+Партнёр или администратор системы. Поля: email, password_hash, name, company, partner_code (uuid[:8]), role ("partner" | "admin"), is_active, approval_status ("pending" | "approved" | "rejected"), rejection_reason (nullable), reward_percentage (nullable, индивидуальный % вознаграждения), workflow_id, b24_api_token.
 Связи: links (1:N), clients (1:N), landings (1:N).
 
 ### PartnerLink (partner_links)
@@ -304,6 +305,10 @@ partner_bitrix24_cabinet/
 ### Админ-панель (требуют role=admin)
 | Метод  | URL                                   | Описание                              | Auth   |
 |--------|---------------------------------------|---------------------------------------|--------|
+| GET    | /api/admin/registrations              | Список pending-заявок на регистрацию  | Admin  |
+| GET    | /api/admin/registrations/count        | Количество pending-заявок (для badge) | Admin  |
+| POST   | /api/admin/registrations/{id}/approve | Одобрить заявку на регистрацию        | Admin  |
+| POST   | /api/admin/registrations/{id}/reject  | Отклонить заявку (с причиной)         | Admin  |
 | GET    | /api/admin/overview                   | Агрегированная статистика             | Admin  |
 | GET    | /api/admin/partners                   | Статистика по каждому партнёру        | Admin  |
 | GET    | /api/admin/partners/{id}              | Детали одного партнёра                | Admin  |
@@ -368,6 +373,7 @@ partner_bitrix24_cabinet/
 | /chat                     | ChatPage                     | Layout       | Partner |
 | /bitrix-settings          | BitrixSettingsPage           | Layout       | Partner |
 | /admin                    | AdminDashboardPage           | AdminLayout  | Admin   |
+| /admin/registrations      | AdminRegistrationsPage       | AdminLayout  | Admin   |
 | /admin/partners           | AdminPartnersPage            | AdminLayout  | Admin   |
 | /admin/partners/:id       | AdminPartnerDetailPage       | AdminLayout  | Admin   |
 | /admin/reports            | AdminReportsPage             | AdminLayout  | Admin   |
@@ -452,6 +458,15 @@ partner_bitrix24_cabinet/
 - **SQLite:** файл data/app.db, персистентность через Docker volume
 - **Uploads:** директория backend/uploads для загруженных изображений лендингов
 
+## Система одобрения регистрации
+
+- При регистрации партнёр создаётся с `is_active=False`, `approval_status="pending"` — без доступа к системе
+- Админ видит заявки в разделе «Заявки» в сайдбаре с badge (количество pending), поллинг каждые 30 сек
+- Одобрение: `approval_status="approved"`, `is_active=True`, создание B24 workflow
+- Отклонение: `approval_status="rejected"`, сохранение причины в `rejection_reason`
+- При попытке входа: pending → сообщение "ожидает рассмотрения", rejected → сообщение с причиной, is_active=False → "деактивирован"
+- Существующие партнёры при миграции получают `approval_status="approved"` автоматически
+
 ## Интеграция с b24-transfer-lead
 
 ```
@@ -462,7 +477,7 @@ Partner Cabinet (backend:8000)  --HTTP-->  b24-transfer-lead (b24-service:7860) 
 ```
 
 - Сервис-к-сервису: заголовок `X-Internal-API-Key` (bypass сессионной auth в b24-transfer-lead)
-- При регистрации партнёра автоматически создаётся workflow с настройками из env:
+- При одобрении регистрации партнёра автоматически создаётся workflow с настройками из env:
   - `B24_WEBHOOK_URL` — единый webhook URL для всех партнёров
   - `B24_ENTITY_TYPE` — тип сущности (lead/deal)
   - `B24_DEAL_CATEGORY_ID`, `B24_DEAL_STAGE_ID`, `B24_LEAD_STATUS_ID` — параметры создания

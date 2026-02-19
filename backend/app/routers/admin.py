@@ -13,6 +13,8 @@ from app.schemas.admin import (
     GlobalRewardPercentageUpdateRequest,
     PartnerPaymentSummaryResponse,
     PartnerRewardPercentageUpdateRequest,
+    RegistrationRequestResponse,
+    RejectRegistrationRequest,
 )
 from app.schemas.notification import NotificationCreateRequest, NotificationListResponse, NotificationResponse
 from app.services import admin_service, notification_service
@@ -99,6 +101,45 @@ async def partner_payments(
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner not found")
     return result
+
+
+@router.get("/registrations", response_model=list[RegistrationRequestResponse])
+async def pending_registrations(
+    db: AsyncSession = Depends(get_db),
+    _admin: Partner = Depends(get_admin_user),
+):
+    return await admin_service.get_pending_registrations(db)
+
+
+@router.get("/registrations/count")
+async def pending_registrations_count(
+    db: AsyncSession = Depends(get_db),
+    _admin: Partner = Depends(get_admin_user),
+):
+    count = await admin_service.get_pending_registrations_count(db)
+    return {"count": count}
+
+
+@router.post("/registrations/{partner_id}/approve")
+async def approve_registration(
+    partner_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin: Partner = Depends(get_admin_user),
+):
+    partner = await admin_service.approve_registration(db, partner_id)
+    return {"ok": True, "partner_id": partner.id}
+
+
+@router.post("/registrations/{partner_id}/reject")
+async def reject_registration(
+    partner_id: int,
+    data: RejectRegistrationRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    _admin: Partner = Depends(get_admin_user),
+):
+    reason = data.rejection_reason if data else None
+    partner = await admin_service.reject_registration(db, partner_id, reason)
+    return {"ok": True, "partner_id": partner.id}
 
 
 @router.get("/config", response_model=AdminConfigResponse)

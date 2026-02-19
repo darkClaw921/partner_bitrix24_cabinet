@@ -179,3 +179,33 @@ export async function getAdminNotifications(): Promise<{ notifications: AdminNot
 export async function deleteNotification(id: number): Promise<void> {
   await apiClient.delete(`/admin/notifications/${id}`)
 }
+
+export interface RegistrationRequest {
+  id: number
+  email: string
+  name: string
+  company: string | null
+  partner_code: string
+  created_at: string
+  approval_status: string
+}
+
+export async function getPendingRegistrations(): Promise<RegistrationRequest[]> {
+  const response = await apiClient.get<RegistrationRequest[]>('/admin/registrations')
+  return response.data
+}
+
+export async function getPendingRegistrationsCount(): Promise<number> {
+  const response = await apiClient.get<{ count: number }>('/admin/registrations/count')
+  return response.data.count
+}
+
+export async function approveRegistration(partnerId: number): Promise<void> {
+  await apiClient.post(`/admin/registrations/${partnerId}/approve`)
+}
+
+export async function rejectRegistration(partnerId: number, rejectionReason?: string): Promise<void> {
+  await apiClient.post(`/admin/registrations/${partnerId}/reject`, {
+    rejection_reason: rejectionReason || null,
+  })
+}

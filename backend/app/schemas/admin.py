@@ -95,3 +95,19 @@ class GlobalRewardPercentageResponse(BaseModel):
 
 class GlobalRewardPercentageUpdateRequest(BaseModel):
     default_reward_percentage: float
+
+
+class RegistrationRequestResponse(BaseModel):
+    id: int
+    email: str
+    name: str
+    company: str | None
+    partner_code: str
+    created_at: datetime
+    approval_status: str
+
+    model_config = {"from_attributes": True}
+
+
+class RejectRegistrationRequest(BaseModel):
+    rejection_reason: str | None = None

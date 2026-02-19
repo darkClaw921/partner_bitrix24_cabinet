@@ -21,6 +21,8 @@ class Partner(Base):
     role: Mapped[str] = mapped_column(String(20), default="partner")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    approval_status: Mapped[str] = mapped_column(String(20), default="pending")
+    rejection_reason: Mapped[str | None] = mapped_column(String(1000), nullable=True, default=None)
 
     # Reward percentage (None = use global default)
     reward_percentage: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
