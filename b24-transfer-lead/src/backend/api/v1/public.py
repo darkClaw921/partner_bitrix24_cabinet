@@ -115,12 +115,18 @@ async def create_lead_public(
     # Prepare extra fields for Bitrix24 (only mapped fields)
     bitrix24_extra_fields: dict[str, Any] = {}
     lead_fields_to_save: list[tuple[str, str]] = []
-    
+
     for field_name, field_value in extra_fields_data.items():
         if field_name in field_mapping:
             bitrix24_field_id = field_mapping[field_name]
             bitrix24_extra_fields[bitrix24_field_id] = field_value
             lead_fields_to_save.append((field_name, str(field_value)))
+
+    # Map comment to standard Bitrix24 COMMENTS field if not already mapped
+    comment_value = extra_fields_data.get("comment")
+    if comment_value and "comment" not in field_mapping:
+        bitrix24_extra_fields["COMMENTS"] = comment_value
+        lead_fields_to_save.append(("comment", str(comment_value)))
     
     # Create lead in workflow database
     workflow_db = next(database_service.get_workflow_session(workflow.id))

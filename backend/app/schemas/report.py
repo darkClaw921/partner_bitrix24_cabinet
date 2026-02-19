@@ -17,6 +17,11 @@ class PartnerReportMetrics(BaseModel):
     payment_requests_rejected: int = 0
     payment_requests_pending: int = 0
     payment_requests_amount: float = 0.0
+    total_deals: int = 0
+    total_successful_deals: int = 0
+    total_lost_deals: int = 0
+    conversion_leads_to_deals: float = 0.0
+    conversion_deals_to_successful: float = 0.0
 
 
 class PartnerReportResponse(BaseModel):

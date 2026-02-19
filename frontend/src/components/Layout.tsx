@@ -72,7 +72,10 @@ export default function Layout() {
 
       {/* Sidebar */}
       <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
-        <div className="sidebar-logo">Партнёрский портал</div>
+        <div className="sidebar-logo">
+          <img src="/logo.png" alt="Логотип" className="sidebar-logo-img" />
+          Партнёрский портал
+        </div>
 
         <nav className="sidebar-nav">
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (

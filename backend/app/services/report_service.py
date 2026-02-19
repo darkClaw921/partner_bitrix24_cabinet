@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 FINAL_DEAL_STATUSES = {"WON", "LOSE", "C:WON", "C:LOSE"}
+WON_STATUSES = {"WON", "C:WON"}
+LOST_STATUSES = {"LOSE", "C:LOSE"}
 
 
 def _apply_date_filter(query, column, date_from: date | None, date_to: date | None):
@@ -50,6 +52,24 @@ async def _compute_partner_metrics(
     leads_in_progress = sum(
         1 for c in clients
         if c.deal_status not in FINAL_DEAL_STATUSES or c.deal_status is None
+    )
+
+    # Conversion metrics
+    total_deals = sum(
+        1 for c in clients
+        if c.deal_status is not None or (c.deal_amount and c.deal_amount > 0)
+    )
+    total_successful_deals = sum(
+        1 for c in clients if c.deal_status in WON_STATUSES
+    )
+    total_lost_deals = sum(
+        1 for c in clients if c.deal_status in LOST_STATUSES
+    )
+    conversion_leads_to_deals = round(
+        (total_deals / total_leads * 100) if total_leads > 0 else 0.0, 1
+    )
+    conversion_deals_to_successful = round(
+        (total_successful_deals / total_deals * 100) if total_deals > 0 else 0.0, 1
     )
 
     # Clicks
@@ -87,6 +107,11 @@ async def _compute_partner_metrics(
         payment_requests_rejected=pr_rejected,
         payment_requests_pending=pr_pending,
         payment_requests_amount=round(pr_amount, 2),
+        total_deals=total_deals,
+        total_successful_deals=total_successful_deals,
+        total_lost_deals=total_lost_deals,
+        conversion_leads_to_deals=conversion_leads_to_deals,
+        conversion_deals_to_successful=conversion_deals_to_successful,
     )
 
 
@@ -241,12 +266,22 @@ async def generate_all_partners_report(
         totals.payment_requests_rejected += metrics.payment_requests_rejected
         totals.payment_requests_pending += metrics.payment_requests_pending
         totals.payment_requests_amount += metrics.payment_requests_amount
+        totals.total_deals += metrics.total_deals
+        totals.total_successful_deals += metrics.total_successful_deals
+        totals.total_lost_deals += metrics.total_lost_deals
 
     totals.total_deal_amount = round(totals.total_deal_amount, 2)
     totals.total_commission = round(totals.total_commission, 2)
     totals.paid_commission = round(totals.paid_commission, 2)
     totals.unpaid_commission = round(totals.unpaid_commission, 2)
     totals.payment_requests_amount = round(totals.payment_requests_amount, 2)
+    # Recalculate conversion rates from aggregated totals
+    totals.conversion_leads_to_deals = round(
+        (totals.total_deals / totals.total_leads * 100) if totals.total_leads > 0 else 0.0, 1
+    )
+    totals.conversion_deals_to_successful = round(
+        (totals.total_successful_deals / totals.total_deals * 100) if totals.total_deals > 0 else 0.0, 1
+    )
 
     return AllPartnersReportResponse(
         date_from=date_from,

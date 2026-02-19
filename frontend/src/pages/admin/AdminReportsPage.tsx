@@ -104,7 +104,11 @@ export default function AdminReportsPage() {
         <>
           <div style={styles.statsGrid}>
             <StatsCard title="Лиды" value={m.total_leads} color="#1a73e8" />
-            <StatsCard title="Продажи" value={m.total_sales} color="#1e8e3e" />
+            <StatsCard title="Сделки" value={m.total_deals} color="#f9a825" />
+            <StatsCard title="Успешные сделки" value={m.total_successful_deals} color="#1e8e3e" />
+            <StatsCard title="Проигранные" value={m.total_lost_deals} color="#d93025" />
+            <StatsCard title="Лиды → Сделки" value={`${m.conversion_leads_to_deals}%`} color="#0288d1" />
+            <StatsCard title="Сделки → Успешные" value={`${m.conversion_deals_to_successful}%`} color="#2e7d32" />
             <StatsCard title="Комиссия" value={`${m.total_commission.toLocaleString()} ₽`} color="#e65100" />
             <StatsCard title="Выплачено" value={`${m.paid_commission.toLocaleString()} ₽`} color="#1e8e3e" />
             <StatsCard title="Не выплачено" value={`${m.unpaid_commission.toLocaleString()} ₽`} color="#d93025" />
@@ -124,11 +128,13 @@ export default function AdminReportsPage() {
                       <th style={styles.th}>Имя</th>
                       <th style={styles.th}>Email</th>
                       <th style={{ ...styles.th, textAlign: 'right' }}>Лиды</th>
-                      <th style={{ ...styles.th, textAlign: 'right' }}>Продажи</th>
+                      <th style={{ ...styles.th, textAlign: 'right' }}>Сделки</th>
+                      <th style={{ ...styles.th, textAlign: 'right' }}>Успешные</th>
+                      <th style={{ ...styles.th, textAlign: 'right' }}>Лид→Сд.</th>
+                      <th style={{ ...styles.th, textAlign: 'right' }}>Сд.→Усп.</th>
                       <th style={{ ...styles.th, textAlign: 'right' }}>Комиссия</th>
                       <th style={{ ...styles.th, textAlign: 'right' }}>Выплачено</th>
                       <th style={{ ...styles.th, textAlign: 'right' }}>Не выплачено</th>
-                      <th style={{ ...styles.th, textAlign: 'right' }}>В работе</th>
                       <th style={{ ...styles.th, textAlign: 'right' }}>Клики</th>
                     </tr>
                   </thead>
@@ -138,11 +144,13 @@ export default function AdminReportsPage() {
                         <td style={{ ...styles.td, fontWeight: 500 }}>{p.partner_name}</td>
                         <td style={styles.td}>{p.partner_email}</td>
                         <td style={{ ...styles.td, textAlign: 'right' }}>{p.metrics.total_leads}</td>
-                        <td style={{ ...styles.td, textAlign: 'right' }}>{p.metrics.total_sales}</td>
+                        <td style={{ ...styles.td, textAlign: 'right' }}>{p.metrics.total_deals}</td>
+                        <td style={{ ...styles.td, textAlign: 'right' }}>{p.metrics.total_successful_deals}</td>
+                        <td style={{ ...styles.td, textAlign: 'right' }}>{p.metrics.conversion_leads_to_deals}%</td>
+                        <td style={{ ...styles.td, textAlign: 'right' }}>{p.metrics.conversion_deals_to_successful}%</td>
                         <td style={{ ...styles.td, textAlign: 'right' }}>{p.metrics.total_commission.toLocaleString()}</td>
                         <td style={{ ...styles.td, textAlign: 'right' }}>{p.metrics.paid_commission.toLocaleString()}</td>
                         <td style={{ ...styles.td, textAlign: 'right' }}>{p.metrics.unpaid_commission.toLocaleString()}</td>
-                        <td style={{ ...styles.td, textAlign: 'right' }}>{p.metrics.leads_in_progress}</td>
                         <td style={{ ...styles.td, textAlign: 'right' }}>{p.metrics.total_clicks}</td>
                       </tr>
                     ))}

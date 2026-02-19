@@ -8,6 +8,7 @@ import {
   type LinkType,
   type CreateLinkData,
 } from '@/api/links'
+import { getLandings, type Landing } from '@/api/landings'
 import { useToast } from '@/hooks/useToast'
 import QRCodeBlock from '@/components/QRCodeBlock'
 
@@ -34,6 +35,8 @@ export default function LinksPage() {
   const [linkType, setLinkType] = useState<LinkType>('direct')
   const [targetUrl, setTargetUrl] = useState('')
   const [landingId, setLandingId] = useState('')
+  const [landings, setLandings] = useState<Landing[]>([])
+  const [landingsLoading, setLandingsLoading] = useState(false)
   const [qrLink, setQrLink] = useState<Link | null>(null)
   const [showUtm, setShowUtm] = useState(false)
   const [utmSource, setUtmSource] = useState('')
@@ -59,6 +62,16 @@ export default function LinksPage() {
   useEffect(() => {
     fetchLinks()
   }, [])
+
+  useEffect(() => {
+    if (linkType === 'landing' && landings.length === 0) {
+      setLandingsLoading(true)
+      getLandings()
+        .then((data) => setLandings(data.filter((l) => l.is_active)))
+        .catch(() => {})
+        .finally(() => setLandingsLoading(false))
+    }
+  }, [linkType])
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault()
@@ -157,15 +170,24 @@ export default function LinksPage() {
             )}
             {linkType === 'landing' && (
               <div style={styles.field}>
-                <label style={styles.label}>ID лендинга</label>
-                <input
-                  style={styles.input}
-                  type="number"
-                  value={landingId}
-                  onChange={(e) => setLandingId(e.target.value)}
-                  required
-                  placeholder="1"
-                />
+                <label style={styles.label}>Лендинг</label>
+                {landingsLoading ? (
+                  <div style={styles.hint}>Загрузка лендингов...</div>
+                ) : landings.length === 0 ? (
+                  <div style={styles.hint}>Нет активных лендингов. Создайте лендинг в разделе «Лендинги».</div>
+                ) : (
+                  <select
+                    style={styles.input}
+                    value={landingId}
+                    onChange={(e) => setLandingId(e.target.value)}
+                    required
+                  >
+                    <option value="">Выберите лендинг</option>
+                    {landings.map((l) => (
+                      <option key={l.id} value={l.id}>{l.title}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             )}
             {linkType === 'iframe' && (

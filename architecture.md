@@ -74,7 +74,7 @@ partner_bitrix24_cabinet/
 │       │   ├── notification.py     # NotificationCreateRequest, NotificationResponse, PartnerNotificationResponse, UnreadCountResponse
 │       │   ├── payment_request.py  # PaymentRequestCreate, PaymentRequestResponse, PaymentRequestAdminAction, PendingCountResponse
 │       │   ├── chat.py             # ChatMessageSend, ChatMessageResponse, ChatConversationPreview, ChatUnreadCountResponse
-│       │   └── report.py           # PartnerReportMetrics, PartnerReportResponse, AllPartnersReportRow, AllPartnersReportResponse
+│       │   └── report.py           # PartnerReportMetrics (с полями конверсий: total_deals, total_successful_deals, total_lost_deals, conversion_leads_to_deals, conversion_deals_to_successful), PartnerReportResponse, AllPartnersReportRow, AllPartnersReportResponse
 │       ├── routers/
 │       │   ├── __init__.py
 │       │   ├── auth.py             # POST /register, /login, /refresh; GET /me
@@ -420,7 +420,7 @@ partner_bitrix24_cabinet/
 
 ## Система отчётов (PDF)
 
-- Генерация отчётов с ключевыми бизнес-метриками: лиды, продажи, комиссия, выплаты, клики, запросы на выплату
+- Генерация отчётов с ключевыми бизнес-метриками: лиды, сделки, конверсии (лиды→сделки, сделки→успешные), продажи, комиссия, выплаты, клики, запросы на выплату
 - Партнёр: отчёт по себе за выбранный период (JSON + PDF)
 - Админ: сводный отчёт по всем партнёрам или по конкретному (JSON + PDF)
 - PDF-генерация через fpdf2 с DejaVu шрифтами (Unicode/русский текст)
@@ -429,6 +429,9 @@ partner_bitrix24_cabinet/
 - `report_service.py` — агрегация данных из Client, LinkClick, PaymentRequest
 - `pdf_service.py` — генерация PDF с таблицами через `table()` context manager fpdf2
 - Лиды в работе: deal_status NOT IN ('WON', 'LOSE', 'C:WON', 'C:LOSE') OR deal_status IS NULL
+- Конверсия лиды → сделки: клиенты с deal_status != NULL или deal_amount > 0 / total_leads
+- Конверсия сделки → успешные: клиенты с deal_status IN ('WON', 'C:WON') / total_deals
+- Метрики конверсии: total_deals, total_successful_deals, total_lost_deals, conversion_leads_to_deals (%), conversion_deals_to_successful (%)
 - Компонент DateRangePicker: два input[date] + пресеты (Сегодня, Неделя, Месяц, Квартал, Год, Всё время)
 
 ## QR-коды

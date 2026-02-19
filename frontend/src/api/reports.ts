@@ -14,6 +14,11 @@ export interface PartnerReportMetrics {
   payment_requests_rejected: number
   payment_requests_pending: number
   payment_requests_amount: number
+  total_deals: number
+  total_successful_deals: number
+  total_lost_deals: number
+  conversion_leads_to_deals: number
+  conversion_deals_to_successful: number
 }
 
 export interface PartnerReportResponse {

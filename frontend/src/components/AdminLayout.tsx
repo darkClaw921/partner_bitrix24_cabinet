@@ -76,7 +76,10 @@ export default function AdminLayout() {
       />
 
       <aside className={`sidebar${sidebarOpen ? ' open' : ''}`} style={{ background: '#1a1a2e' }}>
-        <div className="sidebar-logo">Админ-панель</div>
+        <div className="sidebar-logo">
+          <img src="/logo.png" alt="Логотип" className="sidebar-logo-img" />
+          Админ-панель
+        </div>
 
         <nav className="sidebar-nav">
           {ADMIN_NAV_ITEMS.map(({ to, label, icon: Icon, end, badge }) => (

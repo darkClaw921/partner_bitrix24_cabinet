@@ -132,6 +132,11 @@ def _render_metrics_block(pdf: ReportPDF, metrics: PartnerReportMetrics) -> None
 
     items = [
         ("Количество лидов", str(metrics.total_leads)),
+        ("Количество сделок", str(metrics.total_deals)),
+        ("Успешных сделок", str(metrics.total_successful_deals)),
+        ("Проигранных сделок", str(metrics.total_lost_deals)),
+        ("Конверсия лиды → сделки", f"{metrics.conversion_leads_to_deals}%"),
+        ("Конверсия сделки → успешные", f"{metrics.conversion_deals_to_successful}%"),
         ("Количество продаж", str(metrics.total_sales)),
         ("Сумма сделок, руб.", _format_money(metrics.total_deal_amount)),
         ("Начисленная комиссия, руб.", _format_money(metrics.total_commission)),
@@ -264,11 +269,11 @@ def generate_all_partners_report_pdf(report: AllPartnersReportResponse) -> bytes
             cell_fill_mode="ROWS",
             cell_fill_color=(250, 250, 250),
             borders_layout="SINGLE_TOP_LINE",
-            col_widths=(5, 16, 20, 8, 8, 13, 13, 13),
-            text_align=("CENTER", "LEFT", "LEFT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT"),
+            col_widths=(5, 14, 17, 7, 7, 7, 10, 10, 11, 11),
+            text_align=("CENTER", "LEFT", "LEFT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT"),
         ) as table:
             header = table.row()
-            for h in ["№", "Имя", "Email", "Лиды", "Продажи", "Комиссия", "Выплачено", "Не выплач."]:
+            for h in ["№", "Имя", "Email", "Лиды", "Сделки", "Усп.", "Лид→Сд.", "Сд.→Усп.", "Комиссия", "Выплач."]:
                 header.cell(h)
 
             for i, p in enumerate(report.partners, 1):
@@ -277,10 +282,12 @@ def generate_all_partners_report_pdf(report: AllPartnersReportResponse) -> bytes
                 row.cell(p.partner_name)
                 row.cell(p.partner_email)
                 row.cell(str(p.metrics.total_leads))
-                row.cell(str(p.metrics.total_sales))
+                row.cell(str(p.metrics.total_deals))
+                row.cell(str(p.metrics.total_successful_deals))
+                row.cell(f"{p.metrics.conversion_leads_to_deals}%")
+                row.cell(f"{p.metrics.conversion_deals_to_successful}%")
                 row.cell(_format_money(p.metrics.total_commission))
                 row.cell(_format_money(p.metrics.paid_commission))
-                row.cell(_format_money(p.metrics.unpaid_commission))
 
     _render_signature_block(pdf)
 

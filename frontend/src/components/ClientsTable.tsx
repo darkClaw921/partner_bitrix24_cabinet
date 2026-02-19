@@ -50,7 +50,7 @@ export default function ClientsTable({ clients, skip, limit, onPageChange }: Cli
               <th style={{ ...styles.th, textAlign: 'center' }}>Источник</th>
               <th style={styles.th}>Ссылка</th>
               <th style={{ ...styles.th, textAlign: 'center' }}>Webhook</th>
-              <th style={{ ...styles.th, textAlign: 'center' }}>Статус сделки</th>
+              <th style={{ ...styles.th, textAlign: 'center' }}>Статус</th>
               <th style={styles.th}>Дата</th>
             </tr>
           </thead>
