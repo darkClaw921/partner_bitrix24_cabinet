@@ -217,7 +217,7 @@ partner_bitrix24_cabinet/
 Запись о прочтении уведомления. Поля: notification_id (FK notifications.id, CASCADE), partner_id (FK partners.id), read_at.
 
 ### PaymentRequest (payment_requests)
-Запрос партнёра на выплату вознаграждения. Поля: partner_id (FK partners.id), status ("pending" | "approved" | "rejected"), total_amount, client_ids (JSON-массив ID клиентов), comment (партнёра), payment_details (реквизиты для выплаты), admin_comment, created_at, processed_at, processed_by (FK partners.id, nullable).
+Запрос партнёра на выплату вознаграждения. Поля: partner_id (FK partners.id), status ("pending" | "approved" | "rejected" | "paid"), total_amount, client_ids (JSON-массив ID клиентов), comment (партнёра), payment_details (реквизиты для выплаты), admin_comment, created_at, processed_at, processed_by (FK partners.id, nullable). Жизненный цикл: pending → approved → paid (или pending → rejected). При approved клиенты НЕ помечаются оплаченными; при paid — is_paid=True, paid_at=now.
 
 ### ChatMessage (chat_messages)
 Сообщение в чате между партнёром и админом. Поля: partner_id (FK partners.id — к какому партнёру относится переписка), sender_id (FK partners.id — кто отправил), message (Text), is_read (Boolean, default False), created_at. Индекс по partner_id. Группировка по partner_id даёт одну беседу на партнёра.
@@ -409,6 +409,7 @@ partner_bitrix24_cabinet/
 - Сумма автоматически рассчитывается как сумма partner_reward выбранных клиентов
 - Админ видит badge с количеством pending-запросов на пункте «Запросы на выплату» в сайдбаре (поллинг каждые 30 сек)
 - Админ может одобрить или отклонить запрос с комментарием
+- Двухэтапная выплата: при одобрении партнёр получает уведомление "одобрен, ожидайте 1-3 дня"; при переводе в статус "paid" клиенты помечаются оплаченными (is_paid=True), партнёр получает уведомление "выплата выполнена"
 - При обработке запроса создаётся адресное уведомление для партнёра (через target_partner_id)
 
 ## Чат партнёр-админ

@@ -11,12 +11,14 @@ const STATUS_LABELS: Record<string, string> = {
   pending: 'На рассмотрении',
   approved: 'Одобрен',
   rejected: 'Отклонён',
+  paid: 'Выплачено',
 }
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   pending: { bg: '#fef7e0', color: '#f9a825' },
   approved: { bg: '#e6f4ea', color: '#1e8e3e' },
   rejected: { bg: '#fce8e6', color: '#d93025' },
+  paid: { bg: '#e0f0ff', color: '#1a73e8' },
 }
 
 export default function AdminPaymentRequestsPage() {
@@ -52,7 +54,7 @@ export default function AdminPaymentRequestsPage() {
     }
   }
 
-  const handleProcess = async (status: 'approved' | 'rejected') => {
+  const handleProcess = async (status: 'approved' | 'rejected' | 'paid') => {
     if (!detail) return
     setProcessing(true)
     try {
@@ -60,7 +62,12 @@ export default function AdminPaymentRequestsPage() {
         status,
         admin_comment: adminComment || undefined,
       })
-      showToast(status === 'approved' ? 'Запрос одобрен' : 'Запрос отклонён', 'success')
+      const messages: Record<string, string> = {
+        approved: 'Запрос одобрен',
+        rejected: 'Запрос отклонён',
+        paid: 'Выплата выполнена',
+      }
+      showToast(messages[status], 'success')
       setDetail(null)
       await fetchRequests()
     } catch (err: any) {
@@ -75,7 +82,7 @@ export default function AdminPaymentRequestsPage() {
       <div style={styles.header}>
         <h1 style={styles.title}>Запросы на выплату</h1>
         <div style={styles.filters}>
-          {['', 'pending', 'approved', 'rejected'].map(f => (
+          {['', 'pending', 'approved', 'paid', 'rejected'].map(f => (
             <button
               key={f}
               style={{
@@ -207,7 +214,7 @@ export default function AdminPaymentRequestsPage() {
               ))}
             </div>
 
-            {detail.status === 'pending' && (
+            {(detail.status === 'pending' || detail.status === 'approved') && (
               <>
                 <div style={styles.field}>
                   <label style={styles.label}>Комментарий администратора</label>
@@ -220,20 +227,33 @@ export default function AdminPaymentRequestsPage() {
                   />
                 </div>
                 <div style={styles.actionButtons}>
-                  <button
-                    style={styles.btnApprove}
-                    disabled={processing}
-                    onClick={() => handleProcess('approved')}
-                  >
-                    {processing ? '...' : 'Одобрить'}
-                  </button>
-                  <button
-                    style={styles.btnReject}
-                    disabled={processing}
-                    onClick={() => handleProcess('rejected')}
-                  >
-                    {processing ? '...' : 'Отклонить'}
-                  </button>
+                  {detail.status === 'pending' && (
+                    <>
+                      <button
+                        style={styles.btnApprove}
+                        disabled={processing}
+                        onClick={() => handleProcess('approved')}
+                      >
+                        {processing ? '...' : 'Одобрить'}
+                      </button>
+                      <button
+                        style={styles.btnReject}
+                        disabled={processing}
+                        onClick={() => handleProcess('rejected')}
+                      >
+                        {processing ? '...' : 'Отклонить'}
+                      </button>
+                    </>
+                  )}
+                  {detail.status === 'approved' && (
+                    <button
+                      style={styles.btnPaid}
+                      disabled={processing}
+                      onClick={() => handleProcess('paid')}
+                    >
+                      {processing ? '...' : 'Выплатить'}
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -282,4 +302,5 @@ const styles: Record<string, React.CSSProperties> = {
   actionButtons: { display: 'flex', gap: '10px' },
   btnApprove: { flex: 1, padding: '10px', background: '#1e8e3e', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '14px', fontWeight: 500, cursor: 'pointer' },
   btnReject: { flex: 1, padding: '10px', background: '#fff', color: '#d93025', border: '1px solid #d93025', borderRadius: '6px', fontSize: '14px', fontWeight: 500, cursor: 'pointer' },
+  btnPaid: { flex: 1, padding: '10px', background: '#1a73e8', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '14px', fontWeight: 500, cursor: 'pointer' },
 }

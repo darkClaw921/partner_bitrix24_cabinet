@@ -112,9 +112,9 @@ async def create_payment_request(
                 detail=f"Вознаграждение не рассчитано для клиента: {c.name} (ID {c.id})",
             )
 
-    # Check no client is in another pending request
+    # Check no client is in another pending or approved request
     existing_result = await db.execute(
-        select(PaymentRequest).where(PaymentRequest.status == "pending")
+        select(PaymentRequest).where(PaymentRequest.status.in_(["pending", "approved"]))
     )
     existing_requests = existing_result.scalars().all()
     for er in existing_requests:
@@ -203,19 +203,28 @@ async def process_request(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Запрос на выплату не найден",
         )
-    if pr.status != "pending":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Запрос уже обработан",
-        )
+    # Validate status transitions
+    if action.status == "paid":
+        if pr.status != "approved":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Выплата возможна только для одобренных запросов",
+            )
+    elif action.status in ("approved", "rejected"):
+        if pr.status != "pending":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Запрос уже обработан",
+            )
 
     pr.status = action.status
     pr.processed_at = datetime.utcnow()
     pr.processed_by = admin_id
-    pr.admin_comment = action.admin_comment
+    if action.admin_comment:
+        pr.admin_comment = action.admin_comment
 
-    # Mark clients as paid when approved
-    if action.status == "approved":
+    # Mark clients as paid only when status is "paid"
+    if action.status == "paid":
         client_ids = _parse_client_ids(pr.client_ids)
         if client_ids:
             clients_result = await db.execute(
@@ -226,13 +235,24 @@ async def process_request(
                 client.paid_at = datetime.utcnow()
 
     # Create targeted notification for the partner
-    status_text = "одобрен" if action.status == "approved" else "отклонён"
-    message = f"Ваш запрос на выплату #{pr.id} на сумму {pr.total_amount:.2f} {status_text}."
+    if action.status == "approved":
+        status_text = "одобрен"
+        title = "Запрос на выплату одобрен"
+        message = f"Ваш запрос на выплату #{pr.id} на сумму {pr.total_amount:.2f} одобрен и поставлен в очередь на выплату. Ожидайте 1-3 дня."
+    elif action.status == "rejected":
+        status_text = "отклонён"
+        title = "Запрос на выплату отклонён"
+        message = f"Ваш запрос на выплату #{pr.id} на сумму {pr.total_amount:.2f} отклонён."
+    else:  # paid
+        status_text = "выплачен"
+        title = "Выплата выполнена"
+        message = f"Выплата по запросу #{pr.id} на сумму {pr.total_amount:.2f} выполнена."
+
     if action.admin_comment:
         message += f" Комментарий: {action.admin_comment}"
 
     notification = Notification(
-        title=f"Запрос на выплату {status_text}",
+        title=title,
         message=message,
         created_by=admin_id,
         target_partner_id=pr.partner_id,

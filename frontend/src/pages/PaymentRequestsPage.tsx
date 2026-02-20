@@ -13,12 +13,14 @@ const STATUS_LABELS: Record<string, string> = {
   pending: 'На рассмотрении',
   approved: 'Одобрен',
   rejected: 'Отклонён',
+  paid: 'Выплачено',
 }
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   pending: { bg: '#fef7e0', color: '#f9a825' },
   approved: { bg: '#e6f4ea', color: '#1e8e3e' },
   rejected: { bg: '#fce8e6', color: '#d93025' },
+  paid: { bg: '#e0f0ff', color: '#1a73e8' },
 }
 
 type PaymentMode = 'select' | 'new'

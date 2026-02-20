@@ -34,7 +34,7 @@ export interface CreatePaymentRequest {
 }
 
 export interface AdminAction {
-  status: 'approved' | 'rejected'
+  status: 'approved' | 'rejected' | 'paid'
   admin_comment?: string
 }
 

@@ -26,7 +26,7 @@ class PaymentRequestResponse(BaseModel):
 
 
 class PaymentRequestAdminAction(BaseModel):
-    status: str = Field(pattern="^(approved|rejected)$")
+    status: str = Field(pattern="^(approved|rejected|paid)$")
     admin_comment: str | None = None
 
 
