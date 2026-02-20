@@ -16,9 +16,9 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   pending: { bg: '#fef7e0', color: '#f9a825' },
-  approved: { bg: '#e6f4ea', color: '#1e8e3e' },
+  approved: { bg: '#e0f0ff', color: '#1a73e8' },
   rejected: { bg: '#fce8e6', color: '#d93025' },
-  paid: { bg: '#e0f0ff', color: '#1a73e8' },
+  paid: { bg: '#e6f4ea', color: '#1e8e3e' },
 }
 
 export default function AdminPaymentRequestsPage() {
@@ -133,9 +133,27 @@ export default function AdminPaymentRequestsPage() {
                   </td>
                   <td style={styles.td}>{new Date(r.created_at).toLocaleDateString('ru-RU')}</td>
                   <td style={styles.td}>
-                    <button style={styles.btnSmall} onClick={() => openDetail(r.id)}>
-                      Подробнее
-                    </button>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button style={styles.btnSmall} onClick={() => openDetail(r.id)}>
+                        Подробнее
+                      </button>
+                      {r.status === 'approved' && (
+                        <button
+                          style={styles.btnSmallPaid}
+                          onClick={async () => {
+                            try {
+                              await processPaymentRequest(r.id, { status: 'paid' })
+                              showToast('Выплата выполнена', 'success')
+                              await fetchRequests()
+                            } catch (err: any) {
+                              showToast(err?.response?.data?.detail || 'Ошибка', 'error')
+                            }
+                          }}
+                        >
+                          Выплатить
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -287,6 +305,7 @@ const styles: Record<string, React.CSSProperties> = {
   td: { padding: '12px 16px', fontSize: '14px', verticalAlign: 'middle' },
   badge: { display: 'inline-block', padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 500 },
   btnSmall: { padding: '6px 12px', background: '#1a73e8', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap' },
+  btnSmallPaid: { padding: '6px 12px', background: '#1e8e3e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap' },
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   modalContent: { background: '#fff', borderRadius: '12px', padding: '24px', maxWidth: '600px', width: '90%', maxHeight: '80vh', overflow: 'auto' },
   modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' },
