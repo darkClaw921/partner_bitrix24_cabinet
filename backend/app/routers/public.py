@@ -270,6 +270,10 @@ async def proxy_b24_webhook(
                 if client_obj:
                     client_obj.deal_status = deal_status
                     client_obj.deal_status_name = deal_status_name
+                    # Store deal_id for correct Bitrix24 deal URL
+                    webhook_deal_id = lead_update.get("deal_id")
+                    if webhook_deal_id:
+                        client_obj.deal_id = str(webhook_deal_id)
 
                     # Always update deal_amount when opportunity > 0
                     opportunity_raw = lead_update.get("opportunity")

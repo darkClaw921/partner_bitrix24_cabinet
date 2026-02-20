@@ -199,7 +199,7 @@ partner_bitrix24_cabinet/
 Связи: link (N:1).
 
 ### Client (clients)
-Клиент партнёра. Источник: form или manual. Поля: name, phone, email, company, comment, external_id, webhook_sent, deal_amount, partner_reward, is_paid, paid_at, payment_comment, deal_status, deal_status_name.
+Клиент партнёра. Источник: form или manual. Поля: name, phone, email, company, comment, external_id, webhook_sent, deal_amount, partner_reward, is_paid, paid_at, payment_comment, deal_id (ID сделки в Bitrix24), deal_status, deal_status_name.
 Связи: partner (N:1), link (N:1).
 
 ### LandingPage (landing_pages)

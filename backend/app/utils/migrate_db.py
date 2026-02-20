@@ -214,6 +214,22 @@ def migrate_payment_request_details() -> None:
         logger.error("Migration (payment_request_details) failed: %s", e)
 
 
+def migrate_client_deal_id() -> None:
+    db_path = _get_sync_db_path()
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        if not _column_exists(cursor, "clients", "deal_id"):
+            cursor.execute("ALTER TABLE clients ADD COLUMN deal_id VARCHAR(100)")
+            logger.info("Added deal_id column to clients")
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error("Migration (client deal_id) failed: %s", e)
+
+
 def migrate_partner_b24_fields() -> None:
     db_path = _get_sync_db_path()
     try:

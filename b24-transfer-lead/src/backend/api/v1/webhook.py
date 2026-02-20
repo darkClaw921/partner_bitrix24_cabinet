@@ -434,6 +434,7 @@ async def handle_bitrix24_webhook(
                             "status_semantic_id": new_semantic_id or lead.status_semantic_id,
                             "became_successful": became_successful,
                             "opportunity": lead.deal_amount or lead_data.get("OPPORTUNITY"),
+                            "deal_id": lead.deal_id,
                         }
                     else:
                         logger.warning(f"Lead with bitrix24_lead_id={bitrix_lead_id} not found in any workflow. Searched {len(matching_workflows)} workflows.")
@@ -604,6 +605,7 @@ async def handle_bitrix24_webhook(
                             "status_semantic_id": new_deal_semantic or lead.status_semantic_id,
                             "became_successful": became_successful,
                             "opportunity": deal_data.get("OPPORTUNITY"),
+                            "deal_id": str(bitrix_deal_id),
                         }
                     else:
                         logger.warning(f"Deal {bitrix_deal_id} (LEAD_ID={deal_lead_id}) not found in any workflow. Searched {len(matching_workflows)} workflows.")

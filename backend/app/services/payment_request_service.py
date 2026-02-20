@@ -18,14 +18,17 @@ from app.schemas.payment_request import (
 )
 
 
-def _build_deal_url(external_id: str | None) -> str | None:
-    if not external_id:
+def _build_deal_url(external_id: str | None, deal_id: str | None = None) -> str | None:
+    if not external_id and not deal_id:
         return None
     settings = get_settings()
     if not settings.B24_WEBHOOK_URL:
         return None
     parsed = urlparse(settings.B24_WEBHOOK_URL)
     base = f"{parsed.scheme}://{parsed.netloc}"
+    # If deal_id exists, link to the deal; otherwise use global entity type
+    if deal_id:
+        return f"{base}/crm/deal/details/{deal_id}/"
     entity = settings.B24_ENTITY_TYPE  # "lead" or "deal"
     return f"{base}/crm/{entity}/details/{external_id}/"
 
@@ -64,7 +67,7 @@ async def _build_response(
                 "external_id": c.external_id,
                 "deal_status": c.deal_status,
                 "deal_status_name": c.deal_status_name,
-                "deal_url": _build_deal_url(c.external_id),
+                "deal_url": _build_deal_url(c.external_id, c.deal_id),
             }
             for c in clients
         ]
