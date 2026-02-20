@@ -15,6 +15,7 @@ class PaymentRequest(Base):
     total_amount: Mapped[float] = mapped_column(Float, nullable=False)
     client_ids: Mapped[str] = mapped_column(Text, nullable=False)  # JSON array, e.g. "[1, 5, 12]"
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payment_details: Mapped[str | None] = mapped_column(Text, nullable=True)
     admin_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

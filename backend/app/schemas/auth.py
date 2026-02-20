@@ -25,6 +25,17 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class SavedPaymentMethod(BaseModel):
+    id: str
+    label: str
+    value: str
+
+
+class AddPaymentMethodRequest(BaseModel):
+    label: str = Field(min_length=1)
+    value: str = Field(min_length=1)
+
+
 class PartnerResponse(BaseModel):
     id: int
     email: str
@@ -35,5 +46,6 @@ class PartnerResponse(BaseModel):
     created_at: datetime
     is_active: bool
     approval_status: str = "pending"
+    saved_payment_methods: list[SavedPaymentMethod] = []
 
     model_config = {"from_attributes": True}

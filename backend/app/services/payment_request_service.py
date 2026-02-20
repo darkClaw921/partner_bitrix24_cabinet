@@ -1,10 +1,12 @@
 import json
 from datetime import datetime
+from urllib.parse import urlparse
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.models.client import Client
 from app.models.notification import Notification
 from app.models.partner import Partner
@@ -14,6 +16,18 @@ from app.schemas.payment_request import (
     PaymentRequestCreate,
     PaymentRequestResponse,
 )
+
+
+def _build_deal_url(external_id: str | None) -> str | None:
+    if not external_id:
+        return None
+    settings = get_settings()
+    if not settings.B24_WEBHOOK_URL:
+        return None
+    parsed = urlparse(settings.B24_WEBHOOK_URL)
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    entity = settings.B24_ENTITY_TYPE  # "lead" or "deal"
+    return f"{base}/crm/{entity}/details/{external_id}/"
 
 
 def _parse_client_ids(raw: str) -> list[int]:
@@ -47,6 +61,10 @@ async def _build_response(
                 "phone": c.phone,
                 "deal_amount": c.deal_amount,
                 "partner_reward": c.partner_reward,
+                "external_id": c.external_id,
+                "deal_status": c.deal_status,
+                "deal_status_name": c.deal_status_name,
+                "deal_url": _build_deal_url(c.external_id),
             }
             for c in clients
         ]
@@ -60,6 +78,7 @@ async def _build_response(
         client_ids=client_ids,
         clients_summary=clients_summary,
         comment=pr.comment,
+        payment_details=pr.payment_details,
         admin_comment=pr.admin_comment,
         created_at=pr.created_at,
         processed_at=pr.processed_at,
@@ -115,6 +134,7 @@ async def create_payment_request(
         total_amount=total_amount,
         client_ids=json.dumps(data.client_ids),
         comment=data.comment,
+        payment_details=data.payment_details,
     )
     db.add(pr)
     await db.commit()

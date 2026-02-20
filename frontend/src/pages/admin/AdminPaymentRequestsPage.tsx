@@ -163,6 +163,12 @@ export default function AdminPaymentRequestsPage() {
               <span style={styles.detailLabel}>Сумма:</span>
               <strong>{detail.total_amount.toFixed(2)}</strong>
             </div>
+            {detail.payment_details && (
+              <div style={styles.detailRow}>
+                <span style={styles.detailLabel}>Реквизиты для выплаты:</span>
+                <span style={{ whiteSpace: 'pre-wrap' }}>{detail.payment_details}</span>
+              </div>
+            )}
             {detail.comment && (
               <div style={styles.detailRow}>
                 <span style={styles.detailLabel}>Комментарий партнёра:</span>
@@ -182,8 +188,20 @@ export default function AdminPaymentRequestsPage() {
                   <span style={{ color: '#5f6368', fontSize: '13px' }}>
                     {c.email || c.phone || '—'}
                   </span>
-                  <span style={{ color: '#1e8e3e', fontWeight: 500, fontSize: '13px' }}>
-                    {c.partner_reward?.toFixed(2)} (сделка: {c.deal_amount?.toFixed(2) || '—'})
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#1e8e3e', fontWeight: 500, fontSize: '13px' }}>
+                      {c.partner_reward?.toFixed(2)} (сделка: {c.deal_amount?.toFixed(2) || '—'})
+                    </span>
+                    {c.deal_url && (
+                      <a
+                        href={c.deal_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#1a73e8', fontSize: '12px', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                      >
+                        {c.deal_status_name || 'B24'} &#8599;
+                      </a>
+                    )}
                   </span>
                 </div>
               ))}

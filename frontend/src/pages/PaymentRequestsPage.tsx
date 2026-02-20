@@ -5,7 +5,9 @@ import {
   createPaymentRequest,
   type PaymentRequestResponse,
 } from '@/api/paymentRequests'
+import { addPaymentMethod, deletePaymentMethod, type SavedPaymentMethod } from '@/api/auth'
 import { useToast } from '@/hooks/useToast'
+import { useAuth } from '@/hooks/useAuth'
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'На рассмотрении',
@@ -19,6 +21,8 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   rejected: { bg: '#fce8e6', color: '#d93025' },
 }
 
+type PaymentMode = 'select' | 'new'
+
 export default function PaymentRequestsPage() {
   const [requests, setRequests] = useState<PaymentRequestResponse[]>([])
   const [loading, setLoading] = useState(true)
@@ -29,6 +33,15 @@ export default function PaymentRequestsPage() {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const { showToast } = useToast()
+  const { partner, refreshAuth } = useAuth()
+
+  // Payment method state
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>('select')
+  const [selectedMethodId, setSelectedMethodId] = useState<string>('')
+  const [newMethodLabel, setNewMethodLabel] = useState('')
+  const [newMethodValue, setNewMethodValue] = useState('')
+
+  const savedMethods: SavedPaymentMethod[] = partner?.saved_payment_methods || []
 
   const fetchRequests = async () => {
     try {
@@ -45,7 +58,6 @@ export default function PaymentRequestsPage() {
 
   const openModal = async () => {
     try {
-      // Fetch all clients in pages of 100
       const allClients: Client[] = []
       let skip = 0
       const batchSize = 100
@@ -55,11 +67,20 @@ export default function PaymentRequestsPage() {
         if (batch.length < batchSize) break
         skip += batchSize
       }
-      // Filter: has reward, not paid
       const eligible = allClients.filter(c => c.partner_reward !== null && c.partner_reward > 0 && !c.is_paid)
       setClients(eligible)
       setSelectedIds(new Set())
       setComment('')
+      // Reset payment method selection
+      if (savedMethods.length > 0) {
+        setPaymentMode('select')
+        setSelectedMethodId(savedMethods[0].id)
+      } else {
+        setPaymentMode('new')
+        setSelectedMethodId('')
+      }
+      setNewMethodLabel('')
+      setNewMethodValue('')
       setShowModal(true)
     } catch {
       showToast('Не удалось загрузить клиентов', 'error')
@@ -79,22 +100,74 @@ export default function PaymentRequestsPage() {
     .filter(c => selectedIds.has(c.id))
     .reduce((sum, c) => sum + (c.partner_reward || 0), 0)
 
+  const getSelectedPaymentDetails = (): string | undefined => {
+    if (paymentMode === 'select') {
+      const method = savedMethods.find(m => m.id === selectedMethodId)
+      return method ? `${method.label}: ${method.value}` : undefined
+    }
+    if (newMethodValue.trim()) {
+      const label = newMethodLabel.trim() || 'Без названия'
+      return `${label}: ${newMethodValue.trim()}`
+    }
+    return undefined
+  }
+
   const handleCreate = async () => {
     if (selectedIds.size === 0) return
+
+    // Validate payment details
+    if (paymentMode === 'new' && !newMethodValue.trim()) {
+      showToast('Укажите реквизиты для выплаты', 'error')
+      return
+    }
+    if (paymentMode === 'select' && !selectedMethodId) {
+      showToast('Выберите реквизиты для выплаты', 'error')
+      return
+    }
+
     setCreating(true)
     try {
+      // If adding new method, save it first
+      if (paymentMode === 'new' && newMethodValue.trim()) {
+        await addPaymentMethod(
+          newMethodLabel.trim() || 'Без названия',
+          newMethodValue.trim(),
+        )
+      }
+
       await createPaymentRequest({
         client_ids: Array.from(selectedIds),
         comment: comment || undefined,
+        payment_details: getSelectedPaymentDetails(),
       })
       showToast('Запрос на выплату создан', 'success')
       setShowModal(false)
       await fetchRequests()
+      refreshAuth()
     } catch (err: any) {
       const msg = err?.response?.data?.detail || 'Ошибка создания запроса'
       showToast(msg, 'error')
     } finally {
       setCreating(false)
+    }
+  }
+
+  const handleDeleteMethod = async (methodId: string) => {
+    try {
+      await deletePaymentMethod(methodId)
+      await refreshAuth()
+      if (selectedMethodId === methodId) {
+        const remaining = savedMethods.filter(m => m.id !== methodId)
+        if (remaining.length > 0) {
+          setSelectedMethodId(remaining[0].id)
+        } else {
+          setPaymentMode('new')
+          setSelectedMethodId('')
+        }
+      }
+      showToast('Реквизиты удалены', 'success')
+    } catch {
+      showToast('Не удалось удалить реквизиты', 'error')
     }
   }
 
@@ -190,14 +263,87 @@ export default function PaymentRequestsPage() {
                   <span style={styles.totalHint}>Выбрано: {selectedIds.size}</span>
                 </div>
 
+                {/* Payment methods section */}
+                <div style={styles.field}>
+                  <label style={styles.label}>Реквизиты для выплаты</label>
+
+                  {savedMethods.length > 0 && (
+                    <div style={styles.methodsList}>
+                      {savedMethods.map(m => (
+                        <label key={m.id} style={styles.methodRow}>
+                          <input
+                            type="radio"
+                            name="payment_method"
+                            checked={paymentMode === 'select' && selectedMethodId === m.id}
+                            onChange={() => {
+                              setPaymentMode('select')
+                              setSelectedMethodId(m.id)
+                            }}
+                          />
+                          <div style={styles.methodInfo}>
+                            <span style={styles.methodLabel}>{m.label}</span>
+                            <span style={styles.methodValue}>{m.value}</span>
+                          </div>
+                          <button
+                            type="button"
+                            style={styles.methodDelete}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              handleDeleteMethod(m.id)
+                            }}
+                            title="Удалить"
+                          >
+                            &times;
+                          </button>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  <label style={styles.methodRow}>
+                    <input
+                      type="radio"
+                      name="payment_method"
+                      checked={paymentMode === 'new'}
+                      onChange={() => {
+                        setPaymentMode('new')
+                        setSelectedMethodId('')
+                      }}
+                    />
+                    <span style={{ fontSize: '14px', color: '#1a73e8', fontWeight: 500 }}>
+                      + Добавить новые реквизиты
+                    </span>
+                  </label>
+
+                  {paymentMode === 'new' && (
+                    <div style={styles.newMethodForm}>
+                      <input
+                        type="text"
+                        style={styles.input}
+                        value={newMethodLabel}
+                        onChange={e => setNewMethodLabel(e.target.value)}
+                        placeholder="Название (напр. Сбербанк карта, СБП Тинькофф)"
+                      />
+                      <textarea
+                        style={styles.textarea}
+                        value={newMethodValue}
+                        onChange={e => setNewMethodValue(e.target.value)}
+                        placeholder="Реквизиты (номер карты, счёт, телефон СБП...)"
+                        rows={2}
+                      />
+                    </div>
+                  )}
+                </div>
+
                 <div style={styles.field}>
                   <label style={styles.label}>Комментарий (необязательно)</label>
                   <textarea
                     style={styles.textarea}
                     value={comment}
                     onChange={e => setComment(e.target.value)}
-                    placeholder="Укажите реквизиты или комментарий..."
-                    rows={3}
+                    placeholder="Дополнительная информация..."
+                    rows={2}
                   />
                 </div>
 
@@ -245,6 +391,14 @@ const styles: Record<string, React.CSSProperties> = {
   totalRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderTop: '2px solid #e8eaed', marginBottom: '16px', fontSize: '16px' },
   totalHint: { color: '#5f6368', fontSize: '13px' },
   field: { marginBottom: '16px' },
-  label: { display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500, color: '#5f6368' },
-  textarea: { width: '100%', padding: '10px 12px', border: '1px solid #dadce0', borderRadius: '6px', fontSize: '14px', fontFamily: 'inherit', resize: 'vertical' },
+  label: { display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500, color: '#5f6368' },
+  textarea: { width: '100%', padding: '10px 12px', border: '1px solid #dadce0', borderRadius: '6px', fontSize: '14px', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' },
+  input: { width: '100%', padding: '10px 12px', border: '1px solid #dadce0', borderRadius: '6px', fontSize: '14px', fontFamily: 'inherit', marginBottom: '8px', boxSizing: 'border-box' },
+  methodsList: { marginBottom: '4px' },
+  methodRow: { display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', border: '1px solid #e8eaed', marginBottom: '6px', background: '#fafafa' },
+  methodInfo: { flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 },
+  methodLabel: { fontWeight: 500, fontSize: '13px' },
+  methodValue: { color: '#5f6368', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  methodDelete: { background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#d93025', lineHeight: 1, padding: '2px 6px', flexShrink: 0 },
+  newMethodForm: { marginTop: '8px', padding: '12px', background: '#f8f9fa', borderRadius: '6px', border: '1px solid #e8eaed' },
 }

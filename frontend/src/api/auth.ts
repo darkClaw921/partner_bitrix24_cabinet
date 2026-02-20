@@ -18,6 +18,12 @@ export interface TokenResponse {
   token_type: string
 }
 
+export interface SavedPaymentMethod {
+  id: string
+  label: string
+  value: string
+}
+
 export interface Partner {
   id: number
   email: string
@@ -28,6 +34,7 @@ export interface Partner {
   created_at: string
   is_active: boolean
   approval_status: string
+  saved_payment_methods: SavedPaymentMethod[]
 }
 
 export async function register(data: RegisterData): Promise<Partner> {
@@ -60,4 +67,14 @@ export async function getMe(): Promise<Partner> {
 export function logout(): void {
   localStorage.removeItem('accessToken')
   localStorage.removeItem('refreshToken')
+}
+
+export async function addPaymentMethod(label: string, value: string): Promise<Partner> {
+  const response = await apiClient.post<Partner>('/auth/payment-methods', { label, value })
+  return response.data
+}
+
+export async function deletePaymentMethod(methodId: string): Promise<Partner> {
+  const response = await apiClient.delete<Partner>(`/auth/payment-methods/${methodId}`)
+  return response.data
 }

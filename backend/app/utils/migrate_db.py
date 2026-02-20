@@ -182,6 +182,38 @@ def migrate_partner_approval_fields() -> None:
         logger.error("Migration (partner approval fields) failed: %s", e)
 
 
+def migrate_partner_payment_details() -> None:
+    db_path = _get_sync_db_path()
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        if not _column_exists(cursor, "partners", "payment_details"):
+            cursor.execute("ALTER TABLE partners ADD COLUMN payment_details TEXT")
+            logger.info("Added payment_details column to partners")
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error("Migration (partner_payment_details) failed: %s", e)
+
+
+def migrate_payment_request_details() -> None:
+    db_path = _get_sync_db_path()
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        if not _column_exists(cursor, "payment_requests", "payment_details"):
+            cursor.execute("ALTER TABLE payment_requests ADD COLUMN payment_details TEXT")
+            logger.info("Added payment_details column to payment_requests")
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error("Migration (payment_request_details) failed: %s", e)
+
+
 def migrate_partner_b24_fields() -> None:
     db_path = _get_sync_db_path()
     try:

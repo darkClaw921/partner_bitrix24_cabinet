@@ -14,8 +14,13 @@ export interface PaymentRequestResponse {
     phone: string | null
     deal_amount: number | null
     partner_reward: number | null
+    external_id: string | null
+    deal_status: string | null
+    deal_status_name: string | null
+    deal_url: string | null
   }[]
   comment: string | null
+  payment_details: string | null
   admin_comment: string | null
   created_at: string
   processed_at: string | null
@@ -25,6 +30,7 @@ export interface PaymentRequestResponse {
 export interface CreatePaymentRequest {
   client_ids: number[]
   comment?: string
+  payment_details?: string
 }
 
 export interface AdminAction {

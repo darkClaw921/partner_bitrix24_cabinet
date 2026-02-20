@@ -1,7 +1,8 @@
+import json
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -26,6 +27,23 @@ class Partner(Base):
 
     # Reward percentage (None = use global default)
     reward_percentage: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
+
+    # Saved payment methods (JSON array: [{"id":"...", "label":"...", "value":"..."}])
+    payment_details: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+
+    @property
+    def saved_payment_methods(self) -> list[dict]:
+        if not self.payment_details:
+            return []
+        try:
+            data = json.loads(self.payment_details)
+            return data if isinstance(data, list) else []
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    @saved_payment_methods.setter
+    def saved_payment_methods(self, value: list[dict]) -> None:
+        self.payment_details = json.dumps(value, ensure_ascii=False) if value else None
 
     # b24-transfer-lead integration
     workflow_id: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)

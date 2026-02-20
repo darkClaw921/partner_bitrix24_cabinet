@@ -55,29 +55,29 @@ partner_bitrix24_cabinet/
 │       ├── dependencies.py         # FastAPI Depends: get_db(), get_current_user() (JWT + OAuth2), get_admin_user() (role check)
 │       ├── models/
 │       │   ├── __init__.py         # Реэкспорт всех моделей для Alembic
-│       │   ├── partner.py          # Partner — партнёр (email, password_hash, partner_code, role, reward_percentage, workflow_id, b24_api_token, approval_status, rejection_reason)
+│       │   ├── partner.py          # Partner — партнёр (email, password_hash, partner_code, role, reward_percentage, payment_details (JSON: saved_payment_methods), workflow_id, b24_api_token, approval_status, rejection_reason)
 │       │   ├── link.py             # PartnerLink — партнёрская ссылка (link_type, link_code, target_url, utm_source, utm_medium, utm_campaign, utm_content, utm_term)
 │       │   ├── click.py            # LinkClick — клик по ссылке (ip_address, user_agent, referer)
 │       │   ├── client.py           # Client — клиент (source, name, phone, email, webhook_sent, deal_amount, partner_reward, is_paid, paid_at, payment_comment, deal_status, deal_status_name)
 │       │   ├── landing.py          # LandingPage + LandingImage — лендинги с изображениями
 │       │   ├── notification.py     # Notification (title, message, created_by, target_partner_id) + NotificationRead (notification_id, partner_id, read_at)
-│       │   ├── payment_request.py  # PaymentRequest (partner_id, status, total_amount, client_ids, comment, admin_comment, processed_at, processed_by)
+│       │   ├── payment_request.py  # PaymentRequest (partner_id, status, total_amount, client_ids, comment, payment_details, admin_comment, processed_at, processed_by)
 │       │   └── chat_message.py    # ChatMessage (partner_id, sender_id, message, is_read, created_at)
 │       ├── schemas/
 │       │   ├── __init__.py
-│       │   ├── auth.py             # RegisterRequest, LoginRequest, TokenResponse, PartnerResponse (с полем role)
+│       │   ├── auth.py             # RegisterRequest, LoginRequest, TokenResponse, PartnerResponse (с полями role, saved_payment_methods), SavedPaymentMethod, AddPaymentMethodRequest
 │       │   ├── link.py             # LinkCreateRequest, LinkUpdateRequest, LinkResponse, EmbedCodeResponse (с UTM-полями и redirect_url_with_utm)
 │       │   ├── client.py           # ClientCreateRequest, ClientResponse (с deal_amount, partner_reward, is_paid, deal_status, deal_status_name), PublicFormRequest
 │       │   ├── landing.py          # LandingCreateRequest, LandingUpdateRequest, LandingImageResponse, LandingResponse
 │       │   ├── analytics.py        # SummaryResponse, LinkStatsResponse, BitrixStatsResponse
 │       │   ├── admin.py            # ClientPaymentUpdateRequest, PartnerPaymentSummaryResponse, AdminOverviewResponse, PartnerStatsResponse, AdminPartnerDetailResponse, AdminConfigResponse, PartnerRewardPercentageUpdateRequest, GlobalRewardPercentageResponse, GlobalRewardPercentageUpdateRequest, RegistrationRequestResponse, RejectRegistrationRequest
 │       │   ├── notification.py     # NotificationCreateRequest, NotificationResponse, PartnerNotificationResponse, UnreadCountResponse
-│       │   ├── payment_request.py  # PaymentRequestCreate, PaymentRequestResponse, PaymentRequestAdminAction, PendingCountResponse
+│       │   ├── payment_request.py  # PaymentRequestCreate (с payment_details), PaymentRequestResponse (с payment_details), PaymentRequestAdminAction, PendingCountResponse
 │       │   ├── chat.py             # ChatMessageSend, ChatMessageResponse, ChatConversationPreview, ChatUnreadCountResponse
 │       │   └── report.py           # PartnerReportMetrics (с полями конверсий: total_deals, total_successful_deals, total_lost_deals, conversion_leads_to_deals, conversion_deals_to_successful), PartnerReportResponse, AllPartnersReportRow, AllPartnersReportResponse
 │       ├── routers/
 │       │   ├── __init__.py
-│       │   ├── auth.py             # POST /register, /login, /refresh; GET /me
+│       │   ├── auth.py             # POST /register, /login, /refresh, /payment-methods; GET /me; DELETE /payment-methods/{id}
 │       │   ├── links.py            # CRUD /api/links
 │       │   ├── clients.py          # CRUD /api/clients
 │       │   ├── landings.py         # CRUD /api/landings
@@ -106,7 +106,7 @@ partner_bitrix24_cabinet/
 │       │   └── pdf_service.py     # generate_partner_report_pdf(), generate_all_partners_report_pdf() — генерация PDF через fpdf2 с DejaVu шрифтами
 │       └── utils/
 │           ├── __init__.py
-│           ├── migrate_db.py       # migrate_partner_b24_fields(), migrate_partner_role_field(), migrate_client_payment_fields(), migrate_partner_reward_percentage(), migrate_link_utm_fields(), migrate_notification_target_partner(), migrate_client_deal_status_fields(), migrate_chat_messages_table(), migrate_partner_approval_fields()
+│           ├── migrate_db.py       # migrate_partner_b24_fields(), migrate_partner_role_field(), migrate_client_payment_fields(), migrate_partner_reward_percentage(), migrate_link_utm_fields(), migrate_notification_target_partner(), migrate_client_deal_status_fields(), migrate_chat_messages_table(), migrate_partner_approval_fields(), migrate_partner_payment_details(), migrate_payment_request_details()
 │           ├── create_admin.py     # ensure_admin_exists() — создание/обновление админа из env vars при старте
 │           └── security.py         # hash_password(), verify_password(), create_access/refresh_token()
 └── frontend/
@@ -124,7 +124,7 @@ partner_bitrix24_cabinet/
         │   └── index.css           # CSS reset, CSS-переменные, утилитарные классы
         ├── api/
         │   ├── client.ts           # Axios instance с JWT interceptors
-        │   ├── auth.ts             # register(), login(), refresh(), getMe(), logout(); Partner interface (с role)
+        │   ├── auth.ts             # register(), login(), refresh(), getMe(), logout(), addPaymentMethod(), deletePaymentMethod(); Partner interface (с role, saved_payment_methods), SavedPaymentMethod
         │   ├── links.ts            # getLinks(), createLink(), updateLink(), deleteLink(); интерфейсы Link, CreateLinkData, UpdateLinkData с UTM-полями
         │   ├── clients.ts          # getClients(), getClient(), createClient(); Client interface с deal_amount, partner_reward, is_paid, deal_status, deal_status_name
         │   ├── landings.ts         # getLandings(), createLanding(), updateLanding(), deleteLanding()
@@ -187,7 +187,7 @@ partner_bitrix24_cabinet/
 ## Модели данных
 
 ### Partner (partners)
-Партнёр или администратор системы. Поля: email, password_hash, name, company, partner_code (uuid[:8]), role ("partner" | "admin"), is_active, approval_status ("pending" | "approved" | "rejected"), rejection_reason (nullable), reward_percentage (nullable, индивидуальный % вознаграждения), workflow_id, b24_api_token.
+Партнёр или администратор системы. Поля: email, password_hash, name, company, partner_code (uuid[:8]), role ("partner" | "admin"), is_active, approval_status ("pending" | "approved" | "rejected"), rejection_reason (nullable), reward_percentage (nullable, индивидуальный % вознаграждения), payment_details (JSON-массив сохранённых способов оплаты: [{id, label, value}], свойство saved_payment_methods), workflow_id, b24_api_token.
 Связи: links (1:N), clients (1:N), landings (1:N).
 
 ### PartnerLink (partner_links)
@@ -217,7 +217,7 @@ partner_bitrix24_cabinet/
 Запись о прочтении уведомления. Поля: notification_id (FK notifications.id, CASCADE), partner_id (FK partners.id), read_at.
 
 ### PaymentRequest (payment_requests)
-Запрос партнёра на выплату вознаграждения. Поля: partner_id (FK partners.id), status ("pending" | "approved" | "rejected"), total_amount, client_ids (JSON-массив ID клиентов), comment (партнёра), admin_comment, created_at, processed_at, processed_by (FK partners.id, nullable).
+Запрос партнёра на выплату вознаграждения. Поля: partner_id (FK partners.id), status ("pending" | "approved" | "rejected"), total_amount, client_ids (JSON-массив ID клиентов), comment (партнёра), payment_details (реквизиты для выплаты), admin_comment, created_at, processed_at, processed_by (FK partners.id, nullable).
 
 ### ChatMessage (chat_messages)
 Сообщение в чате между партнёром и админом. Поля: partner_id (FK partners.id — к какому партнёру относится переписка), sender_id (FK partners.id — кто отправил), message (Text), is_read (Boolean, default False), created_at. Индекс по partner_id. Группировка по partner_id даёт одну беседу на партнёра.
@@ -230,7 +230,9 @@ partner_bitrix24_cabinet/
 | POST   | /api/auth/register                    | Регистрация партнёра                  | Нет  |
 | POST   | /api/auth/login                       | Логин, получение JWT-токенов          | Нет  |
 | POST   | /api/auth/refresh                     | Обновление access token               | Нет  |
-| GET    | /api/auth/me                          | Текущий партнёр (с полем role)        | Да   |
+| GET    | /api/auth/me                          | Текущий партнёр (с полем role, saved_payment_methods) | Да   |
+| POST   | /api/auth/payment-methods             | Добавить сохранённый способ оплаты    | Да   |
+| DELETE | /api/auth/payment-methods/{id}        | Удалить сохранённый способ оплаты     | Да   |
 
 ### Ссылки
 | Метод  | URL                                   | Описание                              | Auth |
