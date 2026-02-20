@@ -16,7 +16,7 @@
 
 ```
 partner_bitrix24_cabinet/
-├── docker-compose.dev.yml          # Docker Compose (backend:8003, frontend:5173, b24-service:7860, b24-frontend:3000)
+├── docker-compose.dev.yml          # Docker Compose (backend:8003, frontend:5173, b24-service:7860, b24-frontend:3000, telegram-bot)
 ├── architecture.md                 # Описание архитектуры проекта
 ├── data/                           # Директория для SQLite БД (volume)
 │   └── app.db                      # Файл БД (создаётся автоматически)
@@ -493,3 +493,91 @@ Partner Cabinet (backend:8000)  --HTTP-->  b24-transfer-lead (b24-service:7860) 
 - Статистика и конверсия получаются через API b24-transfer-lead
 - `B24IntegrationService` (`b24_integration_service.py`) — HTTP-клиент (httpx, таймаут 120s для создания лидов) для всех операций
 - Ссылка на UI b24-transfer-lead доступна в админ-панели (B24_SERVICE_FRONTEND_URL)
+
+## Telegram-бот для партнёров
+
+Telegram-бот — чистый API-клиент на aiogram 3.x, вызывает те же REST-эндпоинты, что и React-фронтенд. Отдельный Docker-сервис, без прямого доступа к БД.
+
+```
+Telegram API  <-->  telegram-bot (aiogram 3.x)  --HTTP/JWT-->  backend:8003
+```
+
+### Стек: Python 3.11, aiogram 3.25, httpx, pydantic-settings
+
+### Структура telegram_bot/
+
+```
+telegram_bot/
+├── Dockerfile                     # python:3.11-slim, pip install, CMD python -m bot.main
+├── requirements.txt               # aiogram, httpx, pydantic, pydantic-settings
+├── bot/
+│   ├── __init__.py
+│   ├── main.py                    # Entry point: Bot + Dispatcher + polling + фоновый poller уведомлений
+│   ├── config.py                  # Settings (TELEGRAM_BOT_TOKEN, BACKEND_URL, NOTIFICATION_POLL_INTERVAL)
+│   ├── api_client/
+│   │   ├── __init__.py
+│   │   ├── base.py                # httpx AsyncClient с JWT auth + auto-refresh на 401, get_bytes() для PDF
+│   │   ├── auth.py                # login(), get_me()
+│   │   ├── analytics.py           # get_summary(), get_links_stats()
+│   │   ├── links.py               # get_links(), get_link(), create_link()
+│   │   ├── clients.py             # get_clients(), get_client(), create_client()
+│   │   ├── reports.py             # get_report(), get_report_pdf() (bytes)
+│   │   ├── payment_requests.py    # get_payment_requests(), get_payment_request(), create_payment_request()
+│   │   ├── chat.py                # get_messages(), send_message(), get_unread_count(), mark_read()
+│   │   └── notifications.py       # get_notifications(), get_unread_count(), mark_as_read(), mark_all_as_read()
+│   ├── handlers/
+│   │   ├── __init__.py
+│   │   ├── start.py               # /start, /help, /cancel
+│   │   ├── auth.py                # /login (FSM: email → password), /logout
+│   │   ├── dashboard.py           # Кнопка «Дашборд» — метрики из /api/analytics/summary
+│   │   ├── analytics.py           # Кнопка «Аналитика» — расширенная аналитика
+│   │   ├── links.py               # Кнопка «Ссылки» — список, детали, создание (FSM: title → type → url → utm → confirm)
+│   │   ├── clients.py             # Кнопка «Клиенты» — список, детали, создание (FSM: name → phone → email → company → comment → confirm)
+│   │   ├── reports.py             # Кнопка «Отчёты» — пресеты периодов, кастомные даты FSM, метрики, PDF-скачивание
+│   │   ├── payment_requests.py    # Кнопка «Выплаты» — список, создание (FSM: выбор клиентов → реквизиты → комментарий → confirm)
+│   │   ├── chat.py                # Кнопка «Чат» — просмотр, отправка (FSM: composing), mark_read
+│   │   ├── notifications.py       # Кнопка «Уведомления» — список, детали, mark_read, mark_all
+│   │   └── profile.py             # Кнопка «Профиль» — инфо, добавление/удаление способов оплаты (FSM)
+│   ├── keyboards/
+│   │   ├── __init__.py
+│   │   ├── main_menu.py           # ReplyKeyboard: Дашборд, Ссылки, Клиенты, Аналитика, Отчёты, Выплаты, Чат, Уведомления, Профиль
+│   │   ├── inline.py              # InlineKeyboard builders: списки с пагинацией, выбор клиентов, способы оплаты, подтверждение, пропуск
+│   │   └── callbacks.py           # CallbackData-классы: MenuCB, PaginationCB, LinkCB, ClientCB, PaymentCB, ReportCB, ChatCB, NotifCB, ProfileCB, ClientSelectCB, PayMethodCB, ConfirmCB
+│   ├── states/
+│   │   ├── __init__.py
+│   │   ├── auth.py                # LoginStates (email, password)
+│   │   ├── link.py                # CreateLinkStates (title, link_type, target_url, utm_source, utm_medium, utm_campaign, confirm)
+│   │   ├── client.py              # CreateClientStates (name, phone, email, company, comment, link_id, confirm)
+│   │   ├── payment_request.py     # CreatePaymentStates (select_clients, select_payment_method, new_payment_label, new_payment_value, comment, confirm)
+│   │   ├── report.py              # ReportStates (date_from, date_to)
+│   │   └── chat.py                # ChatStates (composing)
+│   ├── middlewares/
+│   │   ├── __init__.py
+│   │   └── auth.py                # AuthMiddleware: проверка сессии, инъекция api_client + session в data хендлера
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── session_manager.py     # In-memory dict[telegram_user_id → UserSession] (access_token, refresh_token, partner_id, partner_name, partner_email)
+│   │   └── notification_poller.py # Фоновый asyncio task: поллинг unread notifications + chat, push в Telegram при увеличении счётчика
+│   └── utils/
+│       ├── __init__.py
+│       ├── formatters.py          # Форматирование API-данных в HTML-сообщения: dashboard, link, client, analytics, report, payment_request, notification, chat, profile
+│       └── pagination.py          # Хелпер пагинации
+```
+
+### Docker-интеграция
+
+- Сервис `telegram-bot` в docker-compose.dev.yml
+- Env: `TELEGRAM_BOT_TOKEN`, `BACKEND_URL=http://backend:8003`, `NOTIFICATION_POLL_INTERVAL` (default 60)
+- depends_on: backend, restart: unless-stopped
+- Volume: ./telegram_bot:/app (hot-reload при разработке)
+
+### Архитектурные решения
+
+- **Чистый API-клиент**: вся бизнес-логика в backend, бот только вызывает REST API
+- **JWT авторизация**: при /login бот получает access+refresh токены, хранит in-memory по telegram_user_id
+- **Auto-refresh**: при 401 автоматически обновляет токен через POST /api/auth/refresh
+- **FSM (Finite State Machine)**: aiogram StatesGroup для многошаговых потоков (создание ссылки, клиента, запроса на выплату, отчёта)
+- **CallbackData**: type-safe маршрутизация inline-кнопок через aiogram CallbackData классы с prefix
+- **Auth middleware**: на всех protected роутерах проверяет сессию, инъектирует api_client + session
+- **Фоновый поллинг**: asyncio.create_task для периодической проверки новых уведомлений и сообщений чата
+- **Пагинация**: inline-клавиатуры с навигацией ⬅️/➡️ для всех списков

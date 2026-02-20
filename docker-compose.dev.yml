@@ -75,6 +75,22 @@ services:
       - backend
       - b24-frontend
 
+  telegram-bot:
+    build:
+      context: ./telegram_bot
+      dockerfile: Dockerfile
+    volumes:
+      - ./telegram_bot:/app
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - BACKEND_URL=http://backend:8003
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-http://localhost:8003}
+      - NOTIFICATION_POLL_INTERVAL=${NOTIFICATION_POLL_INTERVAL:-60}
+    command: python -m bot.main
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   b24-data:
   b24-frontend-modules:
