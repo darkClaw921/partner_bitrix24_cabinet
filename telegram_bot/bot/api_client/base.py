@@ -64,6 +64,21 @@ class APIClient:
     async def delete(self, path: str, **kwargs) -> httpx.Response:
         return await self.request("DELETE", path, **kwargs)
 
+    async def post_file(self, path: str, file_bytes: bytes, filename: str, data: dict | None = None) -> httpx.Response:
+        """Send a multipart file upload (without Content-Type: application/json)."""
+        url = f"{self.base_url}{path}"
+        headers = {}
+        if self.access_token:
+            headers["Authorization"] = f"Bearer {self.access_token}"
+        files = {"file": (filename, file_bytes)}
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(url, headers=headers, files=files, data=data or {})
+            if resp.status_code == 401 and self.refresh_token:
+                if await self._refresh_tokens():
+                    headers["Authorization"] = f"Bearer {self.access_token}"
+                    resp = await client.post(url, headers=headers, files=files, data=data or {})
+            return resp
+
     async def get_json(self, path: str, **kwargs) -> Optional[dict | list]:
         resp = await self.get(path, **kwargs)
         if resp.status_code == 200:
@@ -77,6 +92,20 @@ class APIClient:
             if resp.status_code == 401 and self.refresh_token:
                 if await self._refresh_tokens():
                     resp = await client.request("GET", url, headers=self._headers(), **kwargs)
+            if resp.status_code == 200:
+                return resp.content
+        return None
+
+    async def get_raw_bytes(self, path: str) -> Optional[bytes]:
+        """Download bytes from the backend root (without /api prefix).
+
+        Used for files served at /uploads/... which are outside /api.
+        """
+        # self.base_url is like "http://backend:8000/api" — strip /api
+        root_url = self.base_url.rsplit("/api", 1)[0]
+        url = f"{root_url}{path}"
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.get(url)
             if resp.status_code == 200:
                 return resp.content
         return None

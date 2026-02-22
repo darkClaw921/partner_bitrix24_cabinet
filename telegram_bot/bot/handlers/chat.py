@@ -1,3 +1,4 @@
+import io
 import logging
 
 from aiogram import Router, F, Bot
@@ -151,6 +152,44 @@ async def paginate_chat(
 async def noop_chat(callback: CallbackQuery):
     """Page counter button — do nothing."""
     await callback.answer()
+
+
+@router.message(ChatStates.active, F.photo | F.document)
+async def send_chat_file(message: Message, api_client: APIClient, session: UserSession, bot: Bot):
+    """In chat mode, handle photo/document uploads."""
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+    try:
+        buf = io.BytesIO()
+        if message.photo:
+            file_obj = await bot.get_file(message.photo[-1].file_id)
+            await bot.download_file(file_obj.file_path, buf)
+            filename = f"photo_{message.photo[-1].file_id[:8]}.jpg"
+        elif message.document:
+            file_obj = await bot.get_file(message.document.file_id)
+            await bot.download_file(file_obj.file_path, buf)
+            filename = message.document.file_name or f"file_{message.document.file_id[:8]}"
+        else:
+            return
+
+        caption = (message.caption or "").strip()
+        result = await chat_api.send_file(api_client, buf.getvalue(), filename, caption)
+
+        if not result:
+            sent = await message.answer("❌ Не удалось отправить файл.", reply_markup=CHAT_REPLY_KB)
+            chat_tracker.track_message(message.from_user.id, sent.message_id)
+            return
+
+        await _show_chat(
+            bot, message.from_user.id, message.chat.id, api_client, session, page=-1,
+        )
+    except Exception as e:
+        logger.error(f"File upload failed: {e}")
+        sent = await message.answer("❌ Ошибка при отправке файла.", reply_markup=CHAT_REPLY_KB)
+        chat_tracker.track_message(message.from_user.id, sent.message_id)
 
 
 @router.message(ChatStates.active)

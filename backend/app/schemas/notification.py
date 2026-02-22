@@ -14,6 +14,8 @@ class NotificationResponse(BaseModel):
     message: str
     created_by: int
     created_at: datetime
+    file_url: str | None = None
+    file_name: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -28,6 +30,8 @@ class PartnerNotificationResponse(BaseModel):
     message: str
     created_at: datetime
     is_read: bool = False
+    file_url: str | None = None
+    file_name: str | None = None
 
 
 class PartnerNotificationListResponse(BaseModel):

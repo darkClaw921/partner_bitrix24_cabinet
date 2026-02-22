@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_admin_user, get_current_user, get_db
@@ -27,6 +27,16 @@ async def send_partner_message(
     user: Partner = Depends(get_current_user),
 ):
     return await chat_service.send_message_partner(db, user.id, data.message)
+
+
+@router.post("/chat/messages/file", response_model=ChatMessageResponse)
+async def send_partner_file(
+    file: UploadFile = File(...),
+    message: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+    user: Partner = Depends(get_current_user),
+):
+    return await chat_service.send_message_with_file_partner(db, user.id, file, message)
 
 
 @router.get("/chat/unread-count", response_model=ChatUnreadCountResponse)
@@ -75,6 +85,17 @@ async def send_admin_message(
     admin: Partner = Depends(get_admin_user),
 ):
     return await chat_service.send_message_admin(db, partner_id, admin.id, data.message)
+
+
+@router.post("/admin/chat/conversations/{partner_id}/messages/file", response_model=ChatMessageResponse)
+async def send_admin_file(
+    partner_id: int,
+    file: UploadFile = File(...),
+    message: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+    admin: Partner = Depends(get_admin_user),
+):
+    return await chat_service.send_message_with_file_admin(db, partner_id, admin.id, file, message)
 
 
 @router.get("/admin/chat/unread-count", response_model=ChatUnreadCountResponse)

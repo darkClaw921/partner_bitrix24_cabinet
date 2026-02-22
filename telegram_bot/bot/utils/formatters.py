@@ -131,8 +131,10 @@ def format_notification(n: dict) -> str:
     lines = [
         f"{is_read} <b>{n.get('title', 'Уведомление')}</b>\n",
         n.get("message", ""),
-        f"\n{_format_dt(n.get('created_at'))}",
     ]
+    if n.get("file_name") and not n.get("file_url"):
+        lines.append(f"\n📎 {n['file_name']}")
+    lines.append(f"\n{_format_dt(n.get('created_at'))}")
     return "\n".join(lines)
 
 
@@ -141,9 +143,21 @@ def format_notification_push(n: dict) -> str:
     lines = [
         f"🔔 <b>{n.get('title', 'Уведомление')}</b>\n",
         n.get("message", ""),
-        f"\n<i>{_format_dt(n.get('created_at'))}</i>",
     ]
+    if n.get("file_name") and not n.get("file_url"):
+        lines.append(f"\n📎 {n['file_name']}")
+    lines.append(f"\n<i>{_format_dt(n.get('created_at'))}</i>")
     return "\n".join(lines)
+
+
+def get_notification_file_type(file_name: str) -> str:
+    """Return 'image', 'video', or 'document' based on file extension."""
+    ext = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else ""
+    if ext in ("jpg", "jpeg", "png", "gif", "webp"):
+        return "image"
+    if ext in ("mp4", "mov", "avi"):
+        return "video"
+    return "document"
 
 
 CHAT_PER_PAGE = 8
@@ -174,7 +188,14 @@ def format_chat_page(messages: list[dict], partner_id: int, page: int) -> tuple[
         sender = "📤 Вы" if is_me else "👨‍💼 Админ"
         dt = _format_dt(msg.get("created_at"))
         text = msg.get("message", "")
-        lines.append(f"<b>{sender}</b>  <i>{dt}</i>\n{text}")
+        file_name = msg.get("file_name")
+        content_parts = []
+        if file_name:
+            content_parts.append(f"📎 {file_name}")
+        if text:
+            content_parts.append(text)
+        content = "\n".join(content_parts)
+        lines.append(f"<b>{sender}</b>  <i>{dt}</i>\n{content}")
     return "\n\n".join(lines), page, total_pages
 
 

@@ -13,6 +13,16 @@ async def send_message(api: APIClient, message: str) -> Optional[dict]:
     return None
 
 
+async def send_file(api: APIClient, file_bytes: bytes, filename: str, message: str = "") -> Optional[dict]:
+    data = {}
+    if message:
+        data["message"] = message
+    resp = await api.post_file("/chat/messages/file", file_bytes, filename, data)
+    if resp.status_code in (200, 201):
+        return resp.json()
+    return None
+
+
 async def get_unread_count(api: APIClient) -> int:
     data = await api.get_json("/chat/unread-count")
     if data:

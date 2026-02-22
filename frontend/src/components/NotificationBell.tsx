@@ -108,6 +108,23 @@ export default function NotificationBell() {
                   <div style={styles.notificationContent}>
                     <div style={styles.notificationTitle}>{n.title}</div>
                     <div style={styles.notificationMessage}>{n.message}</div>
+                    {n.file_url && n.file_name && (
+                      <div style={styles.notificationFile}>
+                        {/\.(jpe?g|png|gif|webp)$/i.test(n.file_name) ? (
+                          <img src={n.file_url} alt={n.file_name} style={styles.fileThumbnail} />
+                        ) : (
+                          <a
+                            href={n.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={styles.fileLink}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            📎 {n.file_name}
+                          </a>
+                        )}
+                      </div>
+                    )}
                     <div style={styles.notificationDate}>
                       {new Date(n.created_at).toLocaleString('ru-RU')}
                     </div>
@@ -234,6 +251,20 @@ const styles: Record<string, React.CSSProperties> = {
     WebkitLineClamp: 4,
     WebkitBoxOrient: 'vertical' as const,
     whiteSpace: 'pre-line' as const,
+  },
+  notificationFile: {
+    marginBottom: '4px',
+  },
+  fileThumbnail: {
+    maxHeight: '120px',
+    maxWidth: '200px',
+    borderRadius: '4px',
+    objectFit: 'cover' as const,
+  },
+  fileLink: {
+    fontSize: '12px',
+    color: '#1a73e8',
+    textDecoration: 'none',
   },
   notificationDate: {
     fontSize: '11px',

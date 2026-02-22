@@ -1,12 +1,20 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, useRef, type FormEvent } from 'react'
 import { createNotification, getAdminNotifications, deleteNotification, type AdminNotification } from '@/api/admin'
+
+const ACCEPTED_TYPES = '.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.avi,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt'
+
+function isImageFile(name: string): boolean {
+  return /\.(jpe?g|png|gif|webp)$/i.test(name)
+}
 
 export default function AdminNotificationsPage() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [loading, setLoading] = useState(true)
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
+  const [file, setFile] = useState<File | null>(null)
   const [sending, setSending] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadNotifications = () => {
     getAdminNotifications()
@@ -24,9 +32,15 @@ export default function AdminNotificationsPage() {
     if (!title.trim() || !message.trim()) return
     setSending(true)
     try {
-      await createNotification({ title: title.trim(), message: message.trim() })
+      await createNotification({
+        title: title.trim(),
+        message: message.trim(),
+        file: file || undefined,
+      })
       setTitle('')
       setMessage('')
+      setFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
       loadNotifications()
     } catch {
       // error handled by interceptor
@@ -72,6 +86,36 @@ export default function AdminNotificationsPage() {
               rows={4}
             />
           </div>
+          <div style={styles.field}>
+            <label style={styles.label}>Файл (необязательно)</label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPTED_TYPES}
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              style={styles.fileInput}
+            />
+            {file && (
+              <div style={styles.filePreview}>
+                {file.type.startsWith('image/') ? (
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt="preview"
+                    style={styles.previewImage}
+                  />
+                ) : (
+                  <span style={styles.fileName}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
+                  style={styles.removeFileButton}
+                >
+                  Удалить файл
+                </button>
+              </div>
+            )}
+          </div>
           <button type="submit" disabled={sending} style={styles.button}>
             {sending ? 'Отправка...' : 'Создать уведомление'}
           </button>
@@ -89,8 +133,22 @@ export default function AdminNotificationsPage() {
             {notifications.map((n) => (
               <div key={n.id} style={styles.notificationItem}>
                 <div style={styles.notificationContent}>
-                  <div style={styles.notificationTitle}>{n.title}</div>
+                  <div style={styles.notificationTitle}>
+                    {n.title}
+                    {n.file_url && <span style={styles.fileIndicator}> 📎</span>}
+                  </div>
                   <div style={styles.notificationMessage}>{n.message}</div>
+                  {n.file_url && n.file_name && (
+                    <div style={styles.notificationFile}>
+                      {isImageFile(n.file_name) ? (
+                        <img src={n.file_url} alt={n.file_name} style={styles.thumbnailSmall} />
+                      ) : (
+                        <a href={n.file_url} target="_blank" rel="noopener noreferrer" style={styles.fileLink}>
+                          📎 {n.file_name}
+                        </a>
+                      )}
+                    </div>
+                  )}
                   <div style={styles.notificationDate}>
                     {new Date(n.created_at).toLocaleString('ru-RU')}
                   </div>
@@ -157,6 +215,34 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: 'inherit',
     boxSizing: 'border-box' as const,
   },
+  fileInput: {
+    fontSize: '14px',
+  },
+  filePreview: {
+    marginTop: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  previewImage: {
+    maxHeight: '80px',
+    maxWidth: '120px',
+    borderRadius: '4px',
+    objectFit: 'cover' as const,
+  },
+  fileName: {
+    fontSize: '13px',
+    color: '#5f6368',
+  },
+  removeFileButton: {
+    background: 'none',
+    border: '1px solid #dadce0',
+    borderRadius: '4px',
+    padding: '4px 10px',
+    fontSize: '12px',
+    color: '#d93025',
+    cursor: 'pointer',
+  },
   button: {
     padding: '10px 24px',
     background: '#1a73e8',
@@ -201,6 +287,23 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#5f6368',
     marginBottom: '8px',
     whiteSpace: 'pre-wrap' as const,
+  },
+  notificationFile: {
+    marginBottom: '8px',
+  },
+  thumbnailSmall: {
+    maxHeight: '60px',
+    maxWidth: '100px',
+    borderRadius: '4px',
+    objectFit: 'cover' as const,
+  },
+  fileLink: {
+    fontSize: '13px',
+    color: '#1a73e8',
+    textDecoration: 'none',
+  },
+  fileIndicator: {
+    fontSize: '14px',
   },
   notificationDate: {
     fontSize: '12px',

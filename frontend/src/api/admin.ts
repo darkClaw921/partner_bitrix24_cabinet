@@ -107,6 +107,8 @@ export interface AdminNotification {
   message: string
   created_by: number
   created_at: string
+  file_url: string | null
+  file_name: string | null
 }
 
 export async function getAdminOverview(): Promise<AdminOverview> {
@@ -173,8 +175,16 @@ export async function updateGlobalRewardPercentage(
   return response.data
 }
 
-export async function createNotification(data: { title: string; message: string }): Promise<AdminNotification> {
-  const response = await apiClient.post<AdminNotification>('/admin/notifications', data)
+export async function createNotification(data: { title: string; message: string; file?: File }): Promise<AdminNotification> {
+  const formData = new FormData()
+  formData.append('title', data.title)
+  formData.append('message', data.message)
+  if (data.file) {
+    formData.append('file', data.file)
+  }
+  const response = await apiClient.post<AdminNotification>('/admin/notifications', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
   return response.data
 }
 

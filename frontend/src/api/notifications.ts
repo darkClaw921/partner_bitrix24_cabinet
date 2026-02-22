@@ -6,6 +6,8 @@ export interface PartnerNotification {
   message: string
   created_at: string
   is_read: boolean
+  file_url: string | null
+  file_name: string | null
 }
 
 export async function getNotifications(): Promise<{ notifications: PartnerNotification[] }> {

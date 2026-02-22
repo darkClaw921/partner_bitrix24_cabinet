@@ -43,6 +43,13 @@ def paginated_list_keyboard(
     return builder.as_markup()
 
 
+def link_detail_keyboard(link_id: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="📱 QR-код", callback_data=LinkCB(action="qr", id=link_id))
+    builder.adjust(1)
+    return builder.as_markup()
+
+
 def links_list_keyboard(links: list[dict], page: int = 0) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     per_page = 5

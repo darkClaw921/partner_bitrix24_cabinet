@@ -230,6 +230,46 @@ def migrate_client_deal_id() -> None:
         logger.error("Migration (client deal_id) failed: %s", e)
 
 
+def migrate_chat_file_fields() -> None:
+    db_path = _get_sync_db_path()
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        if not _column_exists(cursor, "chat_messages", "file_path"):
+            cursor.execute("ALTER TABLE chat_messages ADD COLUMN file_path VARCHAR(500)")
+            logger.info("Added file_path column to chat_messages")
+
+        if not _column_exists(cursor, "chat_messages", "file_name"):
+            cursor.execute("ALTER TABLE chat_messages ADD COLUMN file_name VARCHAR(255)")
+            logger.info("Added file_name column to chat_messages")
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error("Migration (chat file fields) failed: %s", e)
+
+
+def migrate_notification_file_fields() -> None:
+    db_path = _get_sync_db_path()
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        if not _column_exists(cursor, "notifications", "file_path"):
+            cursor.execute("ALTER TABLE notifications ADD COLUMN file_path VARCHAR(500)")
+            logger.info("Added file_path column to notifications")
+
+        if not _column_exists(cursor, "notifications", "file_name"):
+            cursor.execute("ALTER TABLE notifications ADD COLUMN file_name VARCHAR(255)")
+            logger.info("Added file_name column to notifications")
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error("Migration (notification file fields) failed: %s", e)
+
+
 def migrate_partner_b24_fields() -> None:
     db_path = _get_sync_db_path()
     try:

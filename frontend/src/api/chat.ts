@@ -7,6 +7,8 @@ export interface ChatMessage {
   sender_name: string
   is_from_admin: boolean
   message: string
+  file_url: string | null
+  file_name: string | null
   is_read: boolean
   created_at: string
 }
@@ -36,6 +38,14 @@ export async function getPartnerUnreadCount(): Promise<number> {
   return response.data.count
 }
 
+export async function sendPartnerFile(file: File, message?: string): Promise<ChatMessage> {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (message) formData.append('message', message)
+  const response = await apiClient.post<ChatMessage>('/chat/messages/file', formData)
+  return response.data
+}
+
 export async function markPartnerMessagesRead(): Promise<void> {
   await apiClient.post('/chat/read')
 }
@@ -59,6 +69,14 @@ export async function sendAdminMessage(partnerId: number, message: string): Prom
 export async function getAdminChatUnreadCount(): Promise<number> {
   const response = await apiClient.get<{ count: number }>('/admin/chat/unread-count')
   return response.data.count
+}
+
+export async function sendAdminFile(partnerId: number, file: File, message?: string): Promise<ChatMessage> {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (message) formData.append('message', message)
+  const response = await apiClient.post<ChatMessage>(`/admin/chat/conversations/${partnerId}/messages/file`, formData)
+  return response.data
 }
 
 export async function markAdminMessagesRead(partnerId: number): Promise<void> {

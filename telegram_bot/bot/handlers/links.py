@@ -1,11 +1,15 @@
+import io
+
+import qrcode
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, BufferedInputFile
 from aiogram.fsm.context import FSMContext
 
 from bot.api_client import links as links_api
 from bot.api_client.base import APIClient
+from bot.config import settings
 from bot.services.session_manager import UserSession
-from bot.keyboards.inline import links_list_keyboard, skip_keyboard, confirm_keyboard
+from bot.keyboards.inline import links_list_keyboard, link_detail_keyboard, skip_keyboard, confirm_keyboard
 from bot.keyboards.callbacks import LinkCB, PaginationCB, ConfirmCB
 from bot.states.link import CreateLinkStates
 from bot.utils.formatters import format_link_detail
@@ -53,7 +57,30 @@ async def link_detail(callback: CallbackQuery, callback_data: LinkCB, api_client
     if not link:
         await callback.message.answer("Ссылка не найдена.")
         return
-    await callback.message.answer(format_link_detail(link))
+    await callback.message.answer(
+        format_link_detail(link),
+        reply_markup=link_detail_keyboard(callback_data.id),
+    )
+
+
+@router.callback_query(LinkCB.filter(F.action == "qr"))
+async def link_qr(callback: CallbackQuery, callback_data: LinkCB, api_client: APIClient, session: UserSession):
+    await callback.answer()
+    link = await links_api.get_link(api_client, callback_data.id)
+    if not link:
+        await callback.message.answer("Ссылка не найдена.")
+        return
+    link_code = link.get("link_code", "")
+    public_url = f"{settings.PUBLIC_BASE_URL}/api/public/r/{link_code}"
+    img = qrcode.make(public_url, box_size=10, border=2)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    photo = BufferedInputFile(buf.read(), filename=f"qr_{link_code}.png")
+    await callback.message.answer_photo(
+        photo,
+        caption=f"QR-код для ссылки <b>{link.get('title', '')}</b>\n<code>{public_url}</code>",
+    )
 
 
 @router.callback_query(LinkCB.filter(F.action == "create"))

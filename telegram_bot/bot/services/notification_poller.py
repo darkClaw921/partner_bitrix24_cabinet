@@ -7,7 +7,8 @@ from bot.services import chat_tracker
 from bot.api_client import notifications as notif_api
 from bot.api_client import chat as chat_api
 from bot.config import settings
-from bot.utils.formatters import format_notification_push, format_chat_page
+from aiogram.types import BufferedInputFile
+from bot.utils.formatters import format_notification_push, format_chat_page, get_notification_file_type
 from bot.keyboards.inline import chat_pagination_keyboard
 
 logger = logging.getLogger(__name__)
@@ -55,9 +56,30 @@ async def poll_notifications(bot: Bot):
                             for notif in new_notifs:
                                 try:
                                     text = format_notification_push(notif)
-                                    await bot.send_message(
-                                        tg_user_id, text, parse_mode="HTML",
-                                    )
+                                    file_sent = False
+
+                                    if notif.get("file_url") and notif.get("file_name"):
+                                        try:
+                                            file_bytes = await api.get_raw_bytes(notif["file_url"])
+                                            if file_bytes:
+                                                input_file = BufferedInputFile(file_bytes, filename=notif["file_name"])
+                                                ftype = get_notification_file_type(notif["file_name"])
+                                                caption = text if len(text) <= 1024 else None
+                                                if ftype == "image":
+                                                    await bot.send_photo(tg_user_id, input_file, caption=caption, parse_mode="HTML")
+                                                elif ftype == "video":
+                                                    await bot.send_video(tg_user_id, input_file, caption=caption, parse_mode="HTML")
+                                                else:
+                                                    await bot.send_document(tg_user_id, input_file, caption=caption, parse_mode="HTML")
+                                                if not caption:
+                                                    await bot.send_message(tg_user_id, text, parse_mode="HTML")
+                                                file_sent = True
+                                        except Exception as e:
+                                            logger.error(f"Failed to send notification file to {tg_user_id}: {e}")
+
+                                    if not file_sent:
+                                        await bot.send_message(tg_user_id, text, parse_mode="HTML")
+
                                     await notif_api.mark_as_read(api, notif["id"])
                                 except Exception as e:
                                     logger.error(f"Failed to push notification {notif.get('id')} to {tg_user_id}: {e}")

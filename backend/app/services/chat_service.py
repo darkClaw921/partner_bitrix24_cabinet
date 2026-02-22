@@ -1,14 +1,25 @@
+import os
+import uuid
 from datetime import datetime
 
+from fastapi import HTTPException, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.models.chat_message import ChatMessage
 from app.models.partner import Partner
 from app.schemas.chat import ChatConversationPreview, ChatMessageResponse
 
+ALLOWED_EXTENSIONS = {
+    "jpg", "jpeg", "png", "gif", "webp",
+    "pdf", "doc", "docx", "xls", "xlsx", "csv", "txt",
+}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
 
 def _build_message_response(msg: ChatMessage, sender: Partner) -> ChatMessageResponse:
+    file_url = f"/uploads/{msg.file_path}" if msg.file_path else None
     return ChatMessageResponse(
         id=msg.id,
         partner_id=msg.partner_id,
@@ -16,9 +27,37 @@ def _build_message_response(msg: ChatMessage, sender: Partner) -> ChatMessageRes
         sender_name=sender.name,
         is_from_admin=sender.role == "admin",
         message=msg.message,
+        file_url=file_url,
+        file_name=msg.file_name,
         is_read=msg.is_read,
         created_at=msg.created_at,
     )
+
+
+async def _save_upload(file: UploadFile, partner_id: int) -> tuple[str, str]:
+    """Validate and save uploaded file. Returns (relative_path, original_name)."""
+    original_name = file.filename or "file"
+    ext = original_name.rsplit(".", 1)[-1].lower() if "." in original_name else ""
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(400, f"Недопустимый формат файла. Разрешены: {', '.join(sorted(ALLOWED_EXTENSIONS))}")
+
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(400, "Файл слишком большой. Максимум 10 МБ.")
+
+    settings = get_settings()
+    rel_dir = f"chat/{partner_id}"
+    full_dir = os.path.join(settings.UPLOAD_DIR, rel_dir)
+    os.makedirs(full_dir, exist_ok=True)
+
+    unique_name = f"{uuid.uuid4().hex}.{ext}"
+    rel_path = f"{rel_dir}/{unique_name}"
+    full_path = os.path.join(settings.UPLOAD_DIR, rel_path)
+
+    with open(full_path, "wb") as f:
+        f.write(content)
+
+    return rel_path, original_name
 
 
 # ── Partner methods ──
@@ -63,6 +102,24 @@ async def get_partner_unread_count(db: AsyncSession, partner_id: int) -> int:
         )
     ).scalar() or 0
     return count
+
+
+async def send_message_with_file_partner(
+    db: AsyncSession, partner_id: int, file: UploadFile, message: str = "",
+) -> ChatMessageResponse:
+    rel_path, original_name = await _save_upload(file, partner_id)
+    msg = ChatMessage(
+        partner_id=partner_id,
+        sender_id=partner_id,
+        message=message or "",
+        file_path=rel_path,
+        file_name=original_name,
+    )
+    db.add(msg)
+    await db.commit()
+    await db.refresh(msg)
+    sender = (await db.execute(select(Partner).where(Partner.id == partner_id))).scalar_one()
+    return _build_message_response(msg, sender)
 
 
 async def mark_partner_messages_read(db: AsyncSession, partner_id: int) -> None:
@@ -183,6 +240,24 @@ async def get_admin_total_unread_count(db: AsyncSession) -> int:
         )
     ).scalar() or 0
     return count
+
+
+async def send_message_with_file_admin(
+    db: AsyncSession, partner_id: int, admin_id: int, file: UploadFile, message: str = "",
+) -> ChatMessageResponse:
+    rel_path, original_name = await _save_upload(file, partner_id)
+    msg = ChatMessage(
+        partner_id=partner_id,
+        sender_id=admin_id,
+        message=message or "",
+        file_path=rel_path,
+        file_name=original_name,
+    )
+    db.add(msg)
+    await db.commit()
+    await db.refresh(msg)
+    sender = (await db.execute(select(Partner).where(Partner.id == admin_id))).scalar_one()
+    return _build_message_response(msg, sender)
 
 
 async def mark_admin_messages_read(db: AsyncSession, partner_id: int) -> None:

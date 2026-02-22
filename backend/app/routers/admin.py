@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_admin_user, get_db
@@ -16,7 +16,7 @@ from app.schemas.admin import (
     RegistrationRequestResponse,
     RejectRegistrationRequest,
 )
-from app.schemas.notification import NotificationCreateRequest, NotificationListResponse, NotificationResponse
+from app.schemas.notification import NotificationListResponse, NotificationResponse
 from app.services import admin_service, notification_service
 from app.config import get_settings
 
@@ -204,11 +204,15 @@ async def toggle_partner_active(
 
 @router.post("/notifications", response_model=NotificationResponse)
 async def create_notification(
-    data: NotificationCreateRequest,
+    title: str = Form(...),
+    message: str = Form(...),
+    file: UploadFile | None = File(None),
     db: AsyncSession = Depends(get_db),
     admin: Partner = Depends(get_admin_user),
 ):
-    return await notification_service.create_notification(db, data, admin.id)
+    return await notification_service.create_notification(
+        db, title=title, message=message, admin_id=admin.id, file=file,
+    )
 
 
 @router.get("/notifications", response_model=NotificationListResponse)

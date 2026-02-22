@@ -60,9 +60,9 @@ partner_bitrix24_cabinet/
 │       │   ├── click.py            # LinkClick — клик по ссылке (ip_address, user_agent, referer)
 │       │   ├── client.py           # Client — клиент (source, name, phone, email, webhook_sent, deal_amount, partner_reward, is_paid, paid_at, payment_comment, deal_status, deal_status_name)
 │       │   ├── landing.py          # LandingPage + LandingImage — лендинги с изображениями
-│       │   ├── notification.py     # Notification (title, message, created_by, target_partner_id) + NotificationRead (notification_id, partner_id, read_at)
+│       │   ├── notification.py     # Notification (title, message, created_by, target_partner_id, file_path, file_name) + NotificationRead (notification_id, partner_id, read_at)
 │       │   ├── payment_request.py  # PaymentRequest (partner_id, status, total_amount, client_ids, comment, payment_details, admin_comment, processed_at, processed_by)
-│       │   └── chat_message.py    # ChatMessage (partner_id, sender_id, message, is_read, created_at)
+│       │   └── chat_message.py    # ChatMessage (partner_id, sender_id, message, file_path, file_name, is_read, created_at)
 │       ├── schemas/
 │       │   ├── __init__.py
 │       │   ├── auth.py             # RegisterRequest, LoginRequest, TokenResponse, PartnerResponse (с полями role, saved_payment_methods), SavedPaymentMethod, AddPaymentMethodRequest
@@ -71,9 +71,9 @@ partner_bitrix24_cabinet/
 │       │   ├── landing.py          # LandingCreateRequest, LandingUpdateRequest, LandingImageResponse, LandingResponse
 │       │   ├── analytics.py        # SummaryResponse, LinkStatsResponse, BitrixStatsResponse
 │       │   ├── admin.py            # ClientPaymentUpdateRequest, PartnerPaymentSummaryResponse, AdminOverviewResponse, PartnerStatsResponse, AdminPartnerDetailResponse, AdminConfigResponse, PartnerRewardPercentageUpdateRequest, GlobalRewardPercentageResponse, GlobalRewardPercentageUpdateRequest, RegistrationRequestResponse, RejectRegistrationRequest
-│       │   ├── notification.py     # NotificationCreateRequest, NotificationResponse, PartnerNotificationResponse, UnreadCountResponse
+│       │   ├── notification.py     # NotificationCreateRequest, NotificationResponse (file_url, file_name), PartnerNotificationResponse (file_url, file_name), UnreadCountResponse
 │       │   ├── payment_request.py  # PaymentRequestCreate (с payment_details), PaymentRequestResponse (с payment_details), PaymentRequestAdminAction, PendingCountResponse
-│       │   ├── chat.py             # ChatMessageSend, ChatMessageResponse, ChatConversationPreview, ChatUnreadCountResponse
+│       │   ├── chat.py             # ChatMessageSend, ChatMessageResponse (с file_url, file_name), ChatConversationPreview, ChatUnreadCountResponse
 │       │   └── report.py           # PartnerReportMetrics (с полями конверсий: total_deals, total_successful_deals, total_lost_deals, conversion_leads_to_deals, conversion_deals_to_successful), PartnerReportResponse, AllPartnersReportRow, AllPartnersReportResponse
 │       ├── routers/
 │       │   ├── __init__.py
@@ -86,7 +86,7 @@ partner_bitrix24_cabinet/
 │       │   ├── admin.py            # GET /api/admin/overview, /partners, /partners/{id}, /config, /partners/{id}/payments, /reward-percentage, /registrations, /registrations/count; POST /registrations/{id}/approve, /registrations/{id}/reject; PUT /api/admin/clients/{id}/payment, /partners/{id}/reward-percentage, /partners/{id}/toggle-active, /reward-percentage; POST|GET|DELETE /api/admin/notifications
 │       │   ├── notifications.py    # GET /api/notifications/, /unread-count; POST /notifications/{id}/read, /read-all
 │       │   ├── payment_requests.py # POST|GET /api/payment-requests; GET /api/payment-requests/{id}; GET|PUT /api/admin/payment-requests; GET /api/admin/payment-requests/pending-count
-│       │   ├── chat.py             # GET|POST /api/chat/messages, GET /api/chat/unread-count, POST /api/chat/read; GET /api/admin/chat/conversations, GET|POST /api/admin/chat/conversations/{id}/messages, GET /api/admin/chat/unread-count, POST /api/admin/chat/conversations/{id}/read
+│       │   ├── chat.py             # GET|POST /api/chat/messages, POST /api/chat/messages/file, GET /api/chat/unread-count, POST /api/chat/read; GET /api/admin/chat/conversations, GET|POST /api/admin/chat/conversations/{id}/messages, POST /api/admin/chat/conversations/{id}/messages/file, GET /api/admin/chat/unread-count, POST /api/admin/chat/conversations/{id}/read
 │       │   ├── reports.py          # GET /api/reports, /reports/pdf (партнёр); GET /api/admin/reports, /admin/reports/pdf (админ)
 │       │   └── public.py           # Публичные: GET /r/{code} (с UTM-параметрами), /landing/{code}, POST /form/{code}, POST /webhook/b24 (прокси + обновление deal_status + авто-расчёт deal_amount/partner_reward из opportunity + уведомление с суммой и комиссией)
 │       ├── services/
@@ -99,14 +99,14 @@ partner_bitrix24_cabinet/
 │       │   ├── landing_service.py  # create_landing(), get_landings(), update_landing(), delete_landing()
 │       │   ├── analytics_service.py # get_summary(), get_links_stats(), get_bitrix_stats()
 │       │   ├── admin_service.py    # get_admin_overview(), get_partners_stats(), get_partner_detail(), update_client_payment() (авто-расчёт partner_reward), bulk_update_client_payments(), get_partner_payment_summary(), update_partner_reward_percentage(), _get_effective_reward_percentage(), toggle_partner_active(), get_pending_registrations(), get_pending_registrations_count(), approve_registration(), reject_registration()
-│       │   ├── notification_service.py # create_notification(), get_all_notifications(), delete_notification(), get_partner_notifications() (фильтрация по target_partner_id), get_unread_count(), mark_as_read(), mark_all_as_read()
+│       │   ├── notification_service.py # create_notification() (с file upload), _save_notification_upload(), get_all_notifications() (с file_url), delete_notification() (удаляет файл), get_partner_notifications() (фильтрация по target_partner_id, с file_url), get_unread_count(), mark_as_read(), mark_all_as_read()
 │       │   ├── payment_request_service.py # create_payment_request(), get_pending_count(), get_partner_requests(), get_all_requests(), get_request_detail(), process_request()
-│       │   ├── chat_service.py    # send_message_partner(), get_partner_messages(), get_partner_unread_count(), mark_partner_messages_read(), get_conversations(), get_conversation_messages(), send_message_admin(), get_admin_total_unread_count(), mark_admin_messages_read()
+│       │   ├── chat_service.py    # send_message_partner(), send_message_with_file_partner(), get_partner_messages(), get_partner_unread_count(), mark_partner_messages_read(), get_conversations(), get_conversation_messages(), send_message_admin(), send_message_with_file_admin(), get_admin_total_unread_count(), mark_admin_messages_read()
 │       │   ├── report_service.py  # generate_partner_report(), generate_all_partners_report(), _compute_partner_metrics(), _get_partner_clients_detail()
 │       │   └── pdf_service.py     # generate_partner_report_pdf(), generate_all_partners_report_pdf() — генерация PDF через fpdf2 с DejaVu шрифтами
 │       └── utils/
 │           ├── __init__.py
-│           ├── migrate_db.py       # migrate_partner_b24_fields(), migrate_partner_role_field(), migrate_client_payment_fields(), migrate_partner_reward_percentage(), migrate_link_utm_fields(), migrate_notification_target_partner(), migrate_client_deal_status_fields(), migrate_chat_messages_table(), migrate_partner_approval_fields(), migrate_partner_payment_details(), migrate_payment_request_details()
+│           ├── migrate_db.py       # migrate_partner_b24_fields(), migrate_partner_role_field(), migrate_client_payment_fields(), migrate_partner_reward_percentage(), migrate_link_utm_fields(), migrate_notification_target_partner(), migrate_notification_file_fields(), migrate_client_deal_status_fields(), migrate_chat_messages_table(), migrate_chat_file_fields(), migrate_partner_approval_fields(), migrate_partner_payment_details(), migrate_payment_request_details()
 │           ├── create_admin.py     # ensure_admin_exists() — создание/обновление админа из env vars при старте
 │           └── security.py         # hash_password(), verify_password(), create_access/refresh_token()
 └── frontend/
@@ -133,7 +133,7 @@ partner_bitrix24_cabinet/
         │   ├── admin.ts            # getAdminOverview(), getAdminPartners(), getAdminPartnerDetail(), getAdminConfig(), updateClientPayment(), getPartnerPaymentSummary(), updatePartnerRewardPercentage(), togglePartnerActive(), getGlobalRewardPercentage(), updateGlobalRewardPercentage(), createNotification(), getAdminNotifications(), deleteNotification(), getPendingRegistrations(), getPendingRegistrationsCount(), approveRegistration(), rejectRegistration()
         │   ├── notifications.ts    # getNotifications(), getUnreadCount(), markAsRead(), markAllAsRead()
         │   ├── paymentRequests.ts  # createPaymentRequest(), getPartnerPaymentRequests(), getPartnerPaymentRequest(), getAdminPaymentRequests(), getAdminPaymentRequest(), processPaymentRequest(), getPendingCount()
-        │   ├── chat.ts             # getPartnerMessages(), sendPartnerMessage(), getPartnerUnreadCount(), markPartnerMessagesRead(), getAdminConversations(), getAdminConversationMessages(), sendAdminMessage(), getAdminChatUnreadCount(), markAdminMessagesRead()
+        │   ├── chat.ts             # getPartnerMessages(), sendPartnerMessage(), sendPartnerFile(), getPartnerUnreadCount(), markPartnerMessagesRead(), getAdminConversations(), getAdminConversationMessages(), sendAdminMessage(), sendAdminFile(), getAdminChatUnreadCount(), markAdminMessagesRead()
         │   └── reports.ts          # getPartnerReport(), downloadPartnerReportPDF(), getAdminReport(), downloadAdminReportPDF()
         ├── context/
         │   ├── AuthContext.tsx      # AuthProvider: partner state, login/register/logout/refreshAuth, isAdmin
@@ -211,7 +211,7 @@ partner_bitrix24_cabinet/
 Связи: landing (N:1, ondelete CASCADE).
 
 ### Notification (notifications)
-Уведомление от администратора. Поля: title, message, created_by (FK partners.id), target_partner_id (FK partners.id, nullable — если NULL, broadcast всем; если задан, только конкретному партнёру), created_at.
+Уведомление от администратора. Поля: title, message, created_by (FK partners.id), target_partner_id (FK partners.id, nullable — если NULL, broadcast всем; если задан, только конкретному партнёру), file_path (String(500), nullable — относительный путь к файлу в uploads/notifications/), file_name (String(255), nullable — оригинальное имя файла), created_at. Допустимые форматы файлов: jpg, jpeg, png, gif, webp, mp4, mov, avi, pdf, doc, docx, xls, xlsx, csv, txt. Макс. размер: 50 МБ.
 
 ### NotificationRead (notification_reads)
 Запись о прочтении уведомления. Поля: notification_id (FK notifications.id, CASCADE), partner_id (FK partners.id), read_at.
@@ -220,7 +220,7 @@ partner_bitrix24_cabinet/
 Запрос партнёра на выплату вознаграждения. Поля: partner_id (FK partners.id), status ("pending" | "approved" | "rejected" | "paid"), total_amount, client_ids (JSON-массив ID клиентов), comment (партнёра), payment_details (реквизиты для выплаты), admin_comment, created_at, processed_at, processed_by (FK partners.id, nullable). Жизненный цикл: pending → approved → paid (или pending → rejected). При approved клиенты НЕ помечаются оплаченными; при paid — is_paid=True, paid_at=now.
 
 ### ChatMessage (chat_messages)
-Сообщение в чате между партнёром и админом. Поля: partner_id (FK partners.id — к какому партнёру относится переписка), sender_id (FK partners.id — кто отправил), message (Text), is_read (Boolean, default False), created_at. Индекс по partner_id. Группировка по partner_id даёт одну беседу на партнёра.
+Сообщение в чате между партнёром и админом. Поля: partner_id (FK partners.id — к какому партнёру относится переписка), sender_id (FK partners.id — кто отправил), message (Text), file_path (String(500), nullable — относительный путь к файлу в uploads/), file_name (String(255), nullable — оригинальное имя файла), is_read (Boolean, default False), created_at. Индекс по partner_id. Группировка по partner_id даёт одну беседу на партнёра. Файлы сохраняются в uploads/chat/{partner_id}/{uuid}.{ext}.
 
 ## API эндпоинты
 
@@ -322,7 +322,7 @@ partner_bitrix24_cabinet/
 | GET    | /api/admin/reward-percentage          | Получить глобальный % вознаграждения  | Admin  |
 | PUT    | /api/admin/reward-percentage          | Изменить глобальный % вознаграждения  | Admin  |
 | GET    | /api/admin/config                     | Конфиг (URL b24, default_reward_percentage) | Admin  |
-| POST   | /api/admin/notifications              | Создать уведомление                   | Admin  |
+| POST   | /api/admin/notifications              | Создать уведомление (multipart: Form title, message + File) | Admin  |
 | GET    | /api/admin/notifications              | Все уведомления                       | Admin  |
 | DELETE | /api/admin/notifications/{id}         | Удалить уведомление                   | Admin  |
 | GET    | /api/admin/payment-requests           | Все запросы на выплату                | Admin  |
@@ -337,6 +337,7 @@ partner_bitrix24_cabinet/
 |--------|---------------------------------------|---------------------------------------|---------|
 | GET    | /api/chat/messages                    | Сообщения переписки партнёра          | Partner |
 | POST   | /api/chat/messages                    | Отправить сообщение админу            | Partner |
+| POST   | /api/chat/messages/file               | Отправить файл (multipart: file + message) | Partner |
 | GET    | /api/chat/unread-count                | Непрочитанные (для badge)             | Partner |
 | POST   | /api/chat/read                        | Пометить прочитанными                 | Partner |
 
@@ -346,6 +347,7 @@ partner_bitrix24_cabinet/
 | GET    | /api/admin/chat/conversations                   | Список переписок                  | Admin |
 | GET    | /api/admin/chat/conversations/{id}/messages      | Сообщения переписки               | Admin |
 | POST   | /api/admin/chat/conversations/{id}/messages      | Ответить партнёру                 | Admin |
+| POST   | /api/admin/chat/conversations/{id}/messages/file | Отправить файл партнёру (multipart) | Admin |
 | GET    | /api/admin/chat/unread-count                    | Всего непрочитанных               | Admin |
 | POST   | /api/admin/chat/conversations/{id}/read          | Пометить прочитанными             | Admin |
 
@@ -400,7 +402,10 @@ partner_bitrix24_cabinet/
 - Если `target_partner_id` = NULL — broadcast всем партнёрам (текущее поведение)
 - Если `target_partner_id` задан — уведомление видно только этому партнёру
 - Партнёрский UI: колокольчик с badge (непрочитанные), поллинг каждые 30 сек
-- Админский UI: форма создания + список с удалением
+- Поддержка файлов: изображения, видео, документы (хранение в uploads/notifications/{uuid}.{ext})
+- Админский UI: форма создания с file input + превью + список с удалением (📎 индикатор)
+- Партнёрский UI (bell): изображения inline (thumbnail), видео/документы как ссылки
+- Telegram-бот: скачивание файла через get_raw_bytes() + отправка send_photo/send_video/send_document
 
 ## Система запросов на выплату
 
@@ -415,8 +420,12 @@ partner_bitrix24_cabinet/
 ## Чат партнёр-админ
 
 - У каждого партнёра — одна переписка с админом, группировка по partner_id в chat_messages
-- Партнёр: полноэкранный чат с пузырями (партнёр справа #1a73e8, админ слева #f1f3f4), ввод + отправка, авто-скролл, поллинг 30 сек
-- Админ: двухпанельный layout — слева список переписок (имя, превью, badge), справа выбранная переписка, поллинг 30 сек
+- Поддержка отправки файлов (изображения, документы) — допустимые форматы: jpg, jpeg, png, gif, webp, pdf, doc, docx, xls, xlsx, csv, txt; макс. 10 МБ
+- Файлы сохраняются в uploads/chat/{partner_id}/{uuid}.{ext}, отдаются через /uploads/
+- Партнёр: полноэкранный чат с пузырями (партнёр справа #1a73e8, админ слева #f1f3f4), ввод + отправка текста/файлов, авто-скролл, поллинг 30 сек
+- Админ: двухпанельный layout — слева список переписок (имя, превью, badge), справа выбранная переписка с отправкой текста/файлов, поллинг 30 сек
+- Telegram-бот: обработка фото и документов в ChatStates.active — скачивание из Telegram API, загрузка на backend через multipart
+- Фронтенд: изображения показываются inline (max-width: 300px, кликабельные), документы — ссылкой на скачивание
 - Badge в сайдбаре партнёра (Layout) — непрочитанные сообщения от админа
 - Badge в сайдбаре админа (AdminLayout) — всего непрочитанных сообщений от партнёров
 - Mark-read при открытии чата (партнёр) и при выборе переписки (админ)
@@ -502,7 +511,7 @@ Telegram-бот — чистый API-клиент на aiogram 3.x, вызыва
 Telegram API  <-->  telegram-bot (aiogram 3.x)  --HTTP/JWT-->  backend:8003
 ```
 
-### Стек: Python 3.11, aiogram 3.25, httpx, pydantic-settings
+### Стек: Python 3.11, aiogram 3.25, httpx, pydantic-settings, qrcode[pil]
 
 ### Структура telegram_bot/
 
@@ -516,14 +525,14 @@ telegram_bot/
 │   ├── config.py                  # Settings (TELEGRAM_BOT_TOKEN, BACKEND_URL, NOTIFICATION_POLL_INTERVAL)
 │   ├── api_client/
 │   │   ├── __init__.py
-│   │   ├── base.py                # httpx AsyncClient с JWT auth + auto-refresh на 401, get_bytes() для PDF
+│   │   ├── base.py                # httpx AsyncClient с JWT auth + auto-refresh на 401, get_bytes() для PDF, post_file() для multipart upload, get_raw_bytes() для загрузки файлов с root URL
 │   │   ├── auth.py                # login(), get_me()
 │   │   ├── analytics.py           # get_summary(), get_links_stats()
 │   │   ├── links.py               # get_links(), get_link(), create_link()
 │   │   ├── clients.py             # get_clients(), get_client(), create_client()
 │   │   ├── reports.py             # get_report(), get_report_pdf() (bytes)
 │   │   ├── payment_requests.py    # get_payment_requests(), get_payment_request(), create_payment_request()
-│   │   ├── chat.py                # get_messages(), send_message(), get_unread_count(), mark_read()
+│   │   ├── chat.py                # get_messages(), send_message(), send_file(), get_unread_count(), mark_read()
 │   │   └── notifications.py       # get_notifications(), get_unread_count(), mark_as_read(), mark_all_as_read()
 │   ├── handlers/
 │   │   ├── __init__.py
@@ -531,17 +540,17 @@ telegram_bot/
 │   │   ├── auth.py                # /login (FSM: email → password), /logout
 │   │   ├── dashboard.py           # Кнопка «Дашборд» — метрики из /api/analytics/summary
 │   │   ├── analytics.py           # Кнопка «Аналитика» — расширенная аналитика
-│   │   ├── links.py               # Кнопка «Ссылки» — список, детали, создание (FSM: title → type → url → utm → confirm)
+│   │   ├── links.py               # Кнопка «Ссылки» — список, детали, QR-код (генерация PNG через qrcode), создание (FSM: title → type → url → utm → confirm)
 │   │   ├── clients.py             # Кнопка «Клиенты» — список, детали, создание (FSM: name → phone → email → company → comment → confirm)
 │   │   ├── reports.py             # Кнопка «Отчёты» — пресеты периодов, кастомные даты FSM, метрики, PDF-скачивание
 │   │   ├── payment_requests.py    # Кнопка «Выплаты» — список, создание (FSM: выбор клиентов → реквизиты → комментарий → confirm)
-│   │   ├── chat.py                # Кнопка «Чат» — просмотр, отправка (FSM: composing), mark_read
+│   │   ├── chat.py                # Кнопка «Чат» — просмотр, отправка текста и файлов (фото/документ), mark_read
 │   │   ├── notifications.py       # Кнопка «Уведомления» — список, детали, mark_read, mark_all
 │   │   └── profile.py             # Кнопка «Профиль» — инфо, добавление/удаление способов оплаты (FSM)
 │   ├── keyboards/
 │   │   ├── __init__.py
 │   │   ├── main_menu.py           # ReplyKeyboard: Дашборд, Ссылки, Клиенты, Аналитика, Отчёты, Выплаты, Чат, Уведомления, Профиль
-│   │   ├── inline.py              # InlineKeyboard builders: списки с пагинацией, выбор клиентов, способы оплаты, подтверждение, пропуск
+│   │   ├── inline.py              # InlineKeyboard builders: списки с пагинацией, link_detail_keyboard (QR-код), выбор клиентов, способы оплаты, подтверждение, пропуск
 │   │   └── callbacks.py           # CallbackData-классы: MenuCB, PaginationCB, LinkCB, ClientCB, PaymentCB, ReportCB, ChatCB, NotifCB, ProfileCB, ClientSelectCB, PayMethodCB, ConfirmCB
 │   ├── states/
 │   │   ├── __init__.py
@@ -560,7 +569,7 @@ telegram_bot/
 │   │   └── notification_poller.py # Фоновый asyncio task: поллинг unread notifications + chat, push в Telegram при увеличении счётчика
 │   └── utils/
 │       ├── __init__.py
-│       ├── formatters.py          # Форматирование API-данных в HTML-сообщения: dashboard, link, client, analytics, report, payment_request, notification, chat, profile
+│       ├── formatters.py          # Форматирование API-данных в HTML-сообщения: dashboard, link, client, analytics, report, payment_request, notification, chat, profile; get_notification_file_type() (image/video/document)
 │       └── pagination.py          # Хелпер пагинации
 ```
 

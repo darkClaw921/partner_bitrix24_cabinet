@@ -14,6 +14,8 @@ class Notification(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     created_by: Mapped[int] = mapped_column(Integer, ForeignKey("partners.id"), nullable=False)
     target_partner_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("partners.id"), nullable=True)
+    file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

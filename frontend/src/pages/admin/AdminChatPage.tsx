@@ -3,6 +3,7 @@ import {
   getAdminConversations,
   getAdminConversationMessages,
   sendAdminMessage,
+  sendAdminFile,
   markAdminMessagesRead,
   type ChatConversationPreview,
   type ChatMessage,
@@ -16,6 +17,8 @@ export default function AdminChatPage() {
   const [msgsLoading, setMsgsLoading] = useState(false)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = useCallback(() => {
@@ -70,17 +73,22 @@ export default function AdminChatPage() {
   }, [messages, scrollToBottom])
 
   const handleSend = async () => {
-    if (!selectedId || !text.trim() || sending) return
+    if (!selectedId || (!text.trim() && !selectedFile) || sending) return
     setSending(true)
     try {
-      const msg = await sendAdminMessage(selectedId, text.trim())
+      let msg: ChatMessage
+      if (selectedFile) {
+        msg = await sendAdminFile(selectedId, selectedFile, text.trim() || undefined)
+        setSelectedFile(null)
+      } else {
+        msg = await sendAdminMessage(selectedId, text.trim())
+      }
       setMessages(prev => [...prev, msg])
       setText('')
-      // Update last message in conversation list
       setConversations(prev =>
         prev.map(c =>
           c.partner_id === selectedId
-            ? { ...c, last_message: msg.message, last_message_at: msg.created_at }
+            ? { ...c, last_message: msg.message || msg.file_name || '', last_message_at: msg.created_at }
             : c
         )
       )
@@ -172,7 +180,8 @@ export default function AdminChatPage() {
                     {!msg.is_from_admin && (
                       <div style={styles.senderName}>{msg.sender_name}</div>
                     )}
-                    <div style={styles.messageText}>{msg.message}</div>
+                    {msg.file_url && <FileContent msg={msg} />}
+                    {msg.message && <div style={styles.messageText}>{msg.message}</div>}
                     <div style={{
                       ...styles.messageTime,
                       color: msg.is_from_admin ? 'rgba(255,255,255,0.7)' : '#5f6368',
@@ -184,7 +193,26 @@ export default function AdminChatPage() {
               ))}
               <div ref={messagesEndRef} />
             </div>
+            {selectedFile && (
+              <div style={styles.filePreview}>
+                <span style={styles.filePreviewName}>{selectedFile.name}</span>
+                <button style={styles.filePreviewRemove} onClick={() => setSelectedFile(null)}>✕</button>
+              </div>
+            )}
             <div style={styles.inputArea}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                onChange={e => {
+                  const f = e.target.files?.[0]
+                  if (f) setSelectedFile(f)
+                  e.target.value = ''
+                }}
+              />
+              <button style={styles.attachBtn} onClick={() => fileInputRef.current?.click()} disabled={sending}>
+                <AttachIcon />
+              </button>
               <textarea
                 style={styles.input}
                 placeholder="Введите ответ..."
@@ -197,10 +225,10 @@ export default function AdminChatPage() {
               <button
                 style={{
                   ...styles.sendBtn,
-                  opacity: (!text.trim() || sending) ? 0.5 : 1,
+                  opacity: (!text.trim() && !selectedFile || sending) ? 0.5 : 1,
                 }}
                 onClick={handleSend}
-                disabled={!text.trim() || sending}
+                disabled={(!text.trim() && !selectedFile) || sending}
               >
                 <SendIcon />
               </button>
@@ -209,6 +237,39 @@ export default function AdminChatPage() {
         )}
       </div>
     </div>
+  )
+}
+
+const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp']
+
+function isImageFile(name: string) {
+  const ext = name.split('.').pop()?.toLowerCase() || ''
+  return IMAGE_EXTENSIONS.includes(ext)
+}
+
+function FileContent({ msg }: { msg: ChatMessage }) {
+  if (!msg.file_url || !msg.file_name) return null
+  const apiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || ''
+  const fullUrl = `${apiBase}${msg.file_url}`
+  if (isImageFile(msg.file_name)) {
+    return (
+      <a href={fullUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', marginBottom: msg.message ? 6 : 0 }}>
+        <img src={fullUrl} alt={msg.file_name} style={{ maxWidth: 300, maxHeight: 300, borderRadius: 8, display: 'block' }} />
+      </a>
+    )
+  }
+  return (
+    <a href={fullUrl} target="_blank" rel="noopener noreferrer" style={styles.fileLink}>
+      <span style={{ marginRight: 6 }}>📄</span>{msg.file_name}
+    </a>
+  )
+}
+
+function AttachIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+    </svg>
   )
 }
 
@@ -405,5 +466,50 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+  },
+  attachBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: '50%',
+    border: 'none',
+    background: 'transparent',
+    color: '#5f6368',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  filePreview: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '6px 16px',
+    background: '#e8f0fe',
+    borderTop: '1px solid #e0e0e0',
+    fontSize: 13,
+    color: '#1a73e8',
+  },
+  filePreviewName: {
+    flex: 1,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
+  },
+  filePreviewRemove: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: 16,
+    color: '#5f6368',
+    padding: '0 4px',
+  },
+  fileLink: {
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: 13,
+    color: 'inherit',
+    textDecoration: 'underline',
+    marginBottom: 4,
   },
 }
