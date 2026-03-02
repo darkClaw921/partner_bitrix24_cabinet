@@ -4,7 +4,7 @@ export interface Client {
   id: number
   partner_id: number
   link_id: number | null
-  source: 'form' | 'manual'
+  source: 'form' | 'manual' | 'b24_sync'
   name: string
   phone: string | null
   email: string | null

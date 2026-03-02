@@ -136,6 +136,17 @@ class B24IntegrationService:
             resp.raise_for_status()
             return resp.json()
 
+    async def import_lead(self, workflow_id: int, data: dict) -> dict:
+        """Import a lead into b24-transfer-lead (local only, no B24 push)."""
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                self._url(f"/workflows/{workflow_id}/leads/import"),
+                headers=self.headers,
+                json=data,
+            )
+            resp.raise_for_status()
+            return resp.json()
+
     async def get_leads(self, workflow_id: int) -> list:
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import StatsCard from '@/components/StatsCard'
 import DateRangePicker from '@/components/DateRangePicker'
 import { getAdminPartners, type PartnerStats } from '@/api/admin'
@@ -8,29 +8,91 @@ import {
   type AllPartnersReportResponse,
 } from '@/api/reports'
 
+interface SelectedPartner {
+  id: number
+  name: string
+  email: string
+}
+
 export default function AdminReportsPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [selectedPartnerId, setSelectedPartnerId] = useState<number | undefined>(undefined)
-  const [partners, setPartners] = useState<PartnerStats[]>([])
+  const [selectedPartners, setSelectedPartners] = useState<SelectedPartner[]>([])
+  const [partnerSearch, setPartnerSearch] = useState('')
+  const [partnerResults, setPartnerResults] = useState<PartnerStats[]>([])
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [searchLoading, setSearchLoading] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const [report, setReport] = useState<AllPartnersReportResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    getAdminPartners().then(setPartners).catch(() => {})
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const fetchReport = async (from: string, to: string, partnerId?: number) => {
+  const handlePartnerSearchChange = (value: string) => {
+    setPartnerSearch(value)
+    if (!value.trim()) {
+      setPartnerResults([])
+      setShowDropdown(false)
+      return
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setSearchLoading(true)
+      getAdminPartners({ search: value, page: 1, page_size: 20 })
+        .then((res) => {
+          setPartnerResults(res.items)
+          setShowDropdown(true)
+        })
+        .catch(() => {})
+        .finally(() => setSearchLoading(false))
+    }, 300)
+  }
+
+  const addPartner = (p: PartnerStats) => {
+    if (selectedPartners.some((s) => s.id === p.id)) return
+    setSelectedPartners((prev) => [...prev, { id: p.id, name: p.name, email: p.email }])
+    setPartnerSearch('')
+    setPartnerResults([])
+    setShowDropdown(false)
+  }
+
+  const removePartner = (id: number) => {
+    setSelectedPartners((prev) => prev.filter((p) => p.id !== id))
+  }
+
+  const clearAll = () => {
+    setSelectedPartners([])
+    setPartnerSearch('')
+    setPartnerResults([])
+    setShowDropdown(false)
+  }
+
+  const getReportParams = () => {
+    const params: any = {}
+    if (dateFrom) params.date_from = dateFrom
+    if (dateTo) params.date_to = dateTo
+    if (selectedPartners.length > 0) {
+      params.partner_ids = selectedPartners.map((p) => p.id)
+    }
+    return params
+  }
+
+  const fetchReport = async () => {
     setLoading(true)
     setError('')
     try {
-      const data = await getAdminReport({
-        date_from: from || undefined,
-        date_to: to || undefined,
-        partner_id: partnerId,
-      })
+      const data = await getAdminReport(getReportParams())
       setReport(data)
     } catch {
       setError('Не удалось загрузить отчёт')
@@ -40,8 +102,8 @@ export default function AdminReportsPage() {
   }
 
   useEffect(() => {
-    fetchReport(dateFrom, dateTo, selectedPartnerId)
-  }, [dateFrom, dateTo, selectedPartnerId])
+    fetchReport()
+  }, [dateFrom, dateTo, selectedPartners])
 
   const handleDateChange = (from: string, to: string) => {
     setDateFrom(from)
@@ -51,11 +113,7 @@ export default function AdminReportsPage() {
   const handleDownloadPDF = async () => {
     setDownloading(true)
     try {
-      await downloadAdminReportPDF({
-        date_from: dateFrom || undefined,
-        date_to: dateTo || undefined,
-        partner_id: selectedPartnerId,
-      })
+      await downloadAdminReportPDF(getReportParams())
     } catch {
       setError('Не удалось скачать PDF')
     } finally {
@@ -64,6 +122,7 @@ export default function AdminReportsPage() {
   }
 
   const m = report?.totals
+  const selectedIds = new Set(selectedPartners.map((p) => p.id))
 
   return (
     <div style={styles.page}>
@@ -81,19 +140,55 @@ export default function AdminReportsPage() {
       <DateRangePicker dateFrom={dateFrom} dateTo={dateTo} onChange={handleDateChange} />
 
       <div style={styles.filterRow}>
-        <label style={styles.filterLabel}>
-          Партнёр:
-          <select
-            style={styles.select}
-            value={selectedPartnerId ?? ''}
-            onChange={(e) => setSelectedPartnerId(e.target.value ? Number(e.target.value) : undefined)}
-          >
-            <option value="">Все партнёры</option>
-            {partners.map((p) => (
-              <option key={p.id} value={p.id}>{p.name} ({p.email})</option>
+        <div style={styles.filterLabel}>
+          Партнёры:
+          <div ref={dropdownRef} style={styles.searchWrapper}>
+            <input
+              type="text"
+              placeholder="Поиск по имени, email, компании..."
+              value={partnerSearch}
+              onChange={(e) => handlePartnerSearchChange(e.target.value)}
+              onFocus={() => { if (partnerResults.length > 0) setShowDropdown(true) }}
+              style={styles.searchInput}
+            />
+            {showDropdown && (
+              <div style={styles.dropdown}>
+                {searchLoading ? (
+                  <div style={styles.dropdownItem}>Поиск...</div>
+                ) : partnerResults.length === 0 ? (
+                  <div style={styles.dropdownItem}>Ничего не найдено</div>
+                ) : (
+                  partnerResults.map((p) => (
+                    <div
+                      key={p.id}
+                      style={{
+                        ...styles.dropdownItemClickable,
+                        ...(selectedIds.has(p.id) ? styles.dropdownItemSelected : {}),
+                      }}
+                      onClick={() => addPartner(p)}
+                    >
+                      <span style={{ fontWeight: 500 }}>{p.name}</span>
+                      <span style={{ color: '#5f6368', fontSize: '12px', marginLeft: '8px' }}>{p.email}</span>
+                      {p.company && <span style={{ color: '#5f6368', fontSize: '12px', marginLeft: '8px' }}>({p.company})</span>}
+                      {selectedIds.has(p.id) && <span style={{ marginLeft: 'auto', color: '#1a73e8', fontSize: '12px' }}> ✓</span>}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        {selectedPartners.length > 0 && (
+          <div style={styles.badgesRow}>
+            {selectedPartners.map((p) => (
+              <span key={p.id} style={styles.selectedBadge}>
+                {p.name}
+                <button style={styles.badgeRemove} onClick={() => removePartner(p.id)}>&times;</button>
+              </span>
             ))}
-          </select>
-        </label>
+            <button style={styles.clearAllBtn} onClick={clearAll}>Сбросить все</button>
+          </div>
+        )}
       </div>
 
       {error && <div style={styles.error}>{error}</div>}
@@ -119,7 +214,7 @@ export default function AdminReportsPage() {
           {report!.partners.length > 0 && (
             <div style={styles.card}>
               <h2 style={styles.sectionTitle}>
-                {selectedPartnerId ? 'Партнёр' : 'По партнёрам'}
+                {selectedPartners.length === 1 ? 'Партнёр' : 'По партнёрам'}
               </h2>
               <div style={styles.tableWrapper}>
                 <table style={styles.table}>
@@ -175,8 +270,17 @@ const styles: Record<string, React.CSSProperties> = {
   pageTitle: { fontSize: '24px', fontWeight: 700, color: '#202124', margin: 0 },
   btnPrimary: { padding: '10px 24px', background: '#1a73e8', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '14px', fontWeight: 500, cursor: 'pointer' },
   filterRow: { marginBottom: '20px' },
-  filterLabel: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#5f6368', fontWeight: 500 },
-  select: { padding: '8px 12px', border: '1px solid #dadce0', borderRadius: '6px', fontSize: '14px', color: '#202124', outline: 'none', minWidth: '250px' },
+  filterLabel: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#5f6368', fontWeight: 500, flexWrap: 'wrap' as const },
+  searchWrapper: { position: 'relative' as const },
+  searchInput: { padding: '8px 12px', border: '1px solid #dadce0', borderRadius: '6px', fontSize: '14px', color: '#202124', outline: 'none', width: '320px' },
+  dropdown: { position: 'absolute' as const, top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #dadce0', borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 100, maxHeight: '240px', overflowY: 'auto' as const, marginTop: '2px' },
+  dropdownItem: { padding: '10px 12px', fontSize: '13px', color: '#5f6368' },
+  dropdownItemClickable: { padding: '10px 12px', fontSize: '13px', color: '#202124', cursor: 'pointer', borderBottom: '1px solid #f1f3f4', display: 'flex', alignItems: 'center' },
+  dropdownItemSelected: { background: '#e8f0fe' },
+  badgesRow: { display: 'flex', flexWrap: 'wrap' as const, gap: '6px', marginTop: '8px', alignItems: 'center' },
+  selectedBadge: { display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 8px 4px 10px', background: '#e8f0fe', color: '#1a73e8', borderRadius: '12px', fontSize: '13px', fontWeight: 500 },
+  badgeRemove: { background: 'none', border: 'none', color: '#1a73e8', fontSize: '16px', cursor: 'pointer', lineHeight: 1, padding: '0 2px', fontWeight: 700 },
+  clearAllBtn: { background: 'none', border: 'none', color: '#5f6368', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' },
   loader: { textAlign: 'center', padding: '60px 0', color: '#5f6368', fontSize: '16px' },
   error: { background: '#fce8e6', color: '#d93025', padding: '10px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '14px' },
   statsGrid: { display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' },

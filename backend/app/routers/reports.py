@@ -54,10 +54,12 @@ async def get_admin_report(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     partner_id: int | None = Query(None),
+    partner_ids: list[int] | None = Query(None),
     db: AsyncSession = Depends(get_db),
     _admin: Partner = Depends(get_admin_user),
 ):
-    return await generate_all_partners_report(db, date_from, date_to, partner_id)
+    ids = partner_ids or ([partner_id] if partner_id else None)
+    return await generate_all_partners_report(db, date_from, date_to, ids)
 
 
 @router.get("/admin/reports/pdf")
@@ -65,18 +67,20 @@ async def get_admin_report_pdf(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     partner_id: int | None = Query(None),
+    partner_ids: list[int] | None = Query(None),
     db: AsyncSession = Depends(get_db),
     _admin: Partner = Depends(get_admin_user),
 ):
-    if partner_id:
+    ids = partner_ids or ([partner_id] if partner_id else None)
+    if ids and len(ids) == 1:
         # Single partner PDF
-        report = await generate_partner_report(db, partner_id, date_from, date_to)
+        report = await generate_partner_report(db, ids[0], date_from, date_to)
         if not report:
             raise HTTPException(status_code=404, detail="Партнёр не найден")
         pdf_bytes = generate_partner_report_pdf(report)
     else:
-        # All partners PDF
-        report = await generate_all_partners_report(db, date_from, date_to)
+        # Multiple or all partners PDF
+        report = await generate_all_partners_report(db, date_from, date_to, ids)
         pdf_bytes = generate_all_partners_report_pdf(report)
 
     return Response(

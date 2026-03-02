@@ -33,6 +33,8 @@ async def _send_webhook_and_update(
         link_code=link.link_code if link else None,
         client_data=client_data,
         workflow_id=partner.workflow_id,
+        partner=partner,
+        db=db,
     )
     if "error" not in response:
         client.webhook_sent = True

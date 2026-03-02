@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { getAdminOverview, getGlobalRewardPercentage, updateGlobalRewardPercentage, type AdminOverview } from '@/api/admin'
+import { getAdminOverview, getAdminPartners, getGlobalRewardPercentage, updateGlobalRewardPercentage, type AdminOverview, type PartnerStats } from '@/api/admin'
 import StatsCard from '@/components/StatsCard'
 
 export default function AdminDashboardPage() {
   const [data, setData] = useState<AdminOverview | null>(null)
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [searchPartners, setSearchPartners] = useState<PartnerStats[] | null>(null)
+  const [searchLoading, setSearchLoading] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
   const [globalPct, setGlobalPct] = useState<number>(10)
   const [editingPct, setEditingPct] = useState(false)
   const [pctInput, setPctInput] = useState('')
@@ -21,6 +25,22 @@ export default function AdminDashboardPage() {
       .catch(() => {})
   }, [])
 
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!value.trim()) {
+      setSearchPartners(null)
+      return
+    }
+    debounceRef.current = setTimeout(() => {
+      setSearchLoading(true)
+      getAdminPartners({ search: value, page: 1, page_size: 10 })
+        .then((res) => setSearchPartners(res.items))
+        .catch(() => {})
+        .finally(() => setSearchLoading(false))
+    }, 300)
+  }
+
   const saveGlobalPct = async () => {
     const val = parseFloat(pctInput)
     if (isNaN(val) || val < 0 || val > 100) return
@@ -35,6 +55,8 @@ export default function AdminDashboardPage() {
 
   if (loading) return <div>Загрузка...</div>
   if (!data) return <div>Ошибка загрузки данных</div>
+
+  const displayPartners = searchPartners !== null ? searchPartners : data.partners
 
   return (
     <div>
@@ -82,44 +104,57 @@ export default function AdminDashboardPage() {
       <div style={styles.section}>
         <div style={styles.sectionHeader}>
           <h2 style={styles.sectionTitle}>Партнёры</h2>
-          <Link to="/admin/partners" style={styles.viewAll}>Все партнёры</Link>
+          <div style={styles.sectionHeaderRight}>
+            <input
+              type="text"
+              placeholder="Поиск..."
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              style={styles.searchInput}
+            />
+            <Link to="/admin/partners" style={styles.viewAll}>Все партнёры</Link>
+          </div>
         </div>
         <div style={styles.tableWrapper}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Имя</th>
-                <th style={styles.th}>Email</th>
-                <th style={styles.th}>Компания</th>
-                <th style={styles.th}>Ссылки</th>
-                <th style={styles.th}>Клики</th>
-                <th style={styles.th}>Клиенты</th>
-                <th style={styles.th}>Лендинги</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.partners.slice(0, 10).map((p) => (
-                <tr key={p.id}>
-                  <td style={styles.td}>
-                    <Link to={`/admin/partners/${p.id}`} style={styles.link}>{p.name}</Link>
-                  </td>
-                  <td style={styles.td}>{p.email}</td>
-                  <td style={styles.td}>{p.company || '—'}</td>
-                  <td style={styles.td}>{p.links_count}</td>
-                  <td style={styles.td}>{p.clicks_count}</td>
-                  <td style={styles.td}>{p.clients_count}</td>
-                  <td style={styles.td}>{p.landings_count}</td>
-                </tr>
-              ))}
-              {data.partners.length === 0 && (
+          {searchLoading ? (
+            <div style={{ textAlign: 'center', padding: '20px 0', color: '#5f6368' }}>Поиск...</div>
+          ) : (
+            <table style={styles.table}>
+              <thead>
                 <tr>
-                  <td colSpan={7} style={{ ...styles.td, textAlign: 'center', color: '#5f6368' }}>
-                    Пока нет партнёров
-                  </td>
+                  <th style={styles.th}>Имя</th>
+                  <th style={styles.th}>Email</th>
+                  <th style={styles.th}>Компания</th>
+                  <th style={styles.th}>Ссылки</th>
+                  <th style={styles.th}>Клики</th>
+                  <th style={styles.th}>Клиенты</th>
+                  <th style={styles.th}>Лендинги</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {displayPartners.map((p) => (
+                  <tr key={p.id}>
+                    <td style={styles.td}>
+                      <Link to={`/admin/partners/${p.id}`} style={styles.link}>{p.name}</Link>
+                    </td>
+                    <td style={styles.td}>{p.email}</td>
+                    <td style={styles.td}>{p.company || '—'}</td>
+                    <td style={styles.td}>{p.links_count}</td>
+                    <td style={styles.td}>{p.clicks_count}</td>
+                    <td style={styles.td}>{p.clients_count}</td>
+                    <td style={styles.td}>{p.landings_count}</td>
+                  </tr>
+                ))}
+                {displayPartners.length === 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ ...styles.td, textAlign: 'center', color: '#5f6368' }}>
+                      {search ? 'Ничего не найдено' : 'Пока нет партнёров'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
@@ -144,6 +179,21 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '16px',
+    gap: '12px',
+    flexWrap: 'wrap' as const,
+  },
+  sectionHeaderRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  searchInput: {
+    padding: '6px 12px',
+    border: '1px solid #dadce0',
+    borderRadius: '8px',
+    fontSize: '13px',
+    outline: 'none',
+    width: '200px',
   },
   sectionTitle: {
     fontSize: '18px',

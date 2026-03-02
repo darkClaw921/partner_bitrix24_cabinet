@@ -27,6 +27,7 @@ import AdminReportsPage from '@/pages/admin/AdminReportsPage'
 import ChatPage from '@/pages/ChatPage'
 import AdminRegistrationsPage from '@/pages/admin/AdminRegistrationsPage'
 import AdminChatPage from '@/pages/admin/AdminChatPage'
+import AdminSettingsPage from '@/pages/admin/AdminSettingsPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 
 function App() {
@@ -50,6 +51,7 @@ function App() {
               <Route path="/admin/payment-requests" element={<AdminPaymentRequestsPage />} />
               <Route path="/admin/b24" element={<AdminB24Page />} />
               <Route path="/admin/chat" element={<AdminChatPage />} />
+              <Route path="/admin/settings" element={<AdminSettingsPage />} />
             </Route>
 
             {/* Protected routes with Layout */}

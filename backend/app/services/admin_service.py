@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.click import LinkClick
@@ -16,6 +16,7 @@ from app.schemas.admin import (
     AdminPartnerDetailResponse,
     BulkClientPaymentUpdateRequest,
     ClientPaymentUpdateRequest,
+    PaginatedPartnersResponse,
     PartnerPaymentSummaryResponse,
     PartnerStatsResponse,
     RegistrationRequestResponse,
@@ -172,7 +173,10 @@ async def get_admin_overview(db: AsyncSession) -> AdminOverviewResponse:
         ), 0))
     )).scalar() or 0
 
-    partners = await get_partners_stats(db)
+    # Load only top 10 partners for dashboard
+    top_query = _build_partners_stats_query().order_by(Partner.created_at.desc()).limit(10)
+    result = await db.execute(top_query)
+    partners = [_row_to_partner_stats(row) for row in result.all()]
 
     return AdminOverviewResponse(
         total_partners=total_partners,
@@ -186,7 +190,8 @@ async def get_admin_overview(db: AsyncSession) -> AdminOverviewResponse:
     )
 
 
-async def get_partners_stats(db: AsyncSession) -> list[PartnerStatsResponse]:
+def _build_partners_stats_query(search: str | None = None):
+    """Build the base query for partner stats with optional search filter."""
     links_sq = (
         select(PartnerLink.partner_id, func.count(PartnerLink.id).label("cnt"))
         .group_by(PartnerLink.partner_id)
@@ -250,31 +255,72 @@ async def get_partners_stats(db: AsyncSession) -> list[PartnerStatsResponse]:
         .outerjoin(paid_sq, Partner.id == paid_sq.c.partner_id)
         .outerjoin(unpaid_sq, Partner.id == unpaid_sq.c.partner_id)
         .where(Partner.role == "partner")
-        .order_by(Partner.created_at.desc())
     )
 
-    result = await db.execute(query)
-    rows = result.all()
-
-    return [
-        PartnerStatsResponse(
-            id=row.Partner.id,
-            email=row.Partner.email,
-            name=row.Partner.name,
-            company=row.Partner.company,
-            partner_code=row.Partner.partner_code,
-            created_at=row.Partner.created_at,
-            is_active=row.Partner.is_active,
-            links_count=row.links_count,
-            clicks_count=row.clicks_count,
-            clients_count=row.clients_count,
-            landings_count=row.landings_count,
-            paid_amount=float(row.paid_amount),
-            unpaid_amount=float(row.unpaid_amount),
-            reward_percentage=row.Partner.reward_percentage,
+    if search:
+        pattern = f"%{search}%"
+        query = query.where(
+            or_(
+                Partner.name.ilike(pattern),
+                Partner.email.ilike(pattern),
+                Partner.company.ilike(pattern),
+            )
         )
-        for row in rows
-    ]
+
+    return query
+
+
+def _row_to_partner_stats(row) -> PartnerStatsResponse:
+    return PartnerStatsResponse(
+        id=row.Partner.id,
+        email=row.Partner.email,
+        name=row.Partner.name,
+        company=row.Partner.company,
+        partner_code=row.Partner.partner_code,
+        created_at=row.Partner.created_at,
+        is_active=row.Partner.is_active,
+        links_count=row.links_count,
+        clicks_count=row.clicks_count,
+        clients_count=row.clients_count,
+        landings_count=row.landings_count,
+        paid_amount=float(row.paid_amount),
+        unpaid_amount=float(row.unpaid_amount),
+        reward_percentage=row.Partner.reward_percentage,
+    )
+
+
+async def get_partners_stats(db: AsyncSession) -> list[PartnerStatsResponse]:
+    query = _build_partners_stats_query().order_by(Partner.created_at.desc())
+    result = await db.execute(query)
+    return [_row_to_partner_stats(row) for row in result.all()]
+
+
+async def get_partners_stats_paginated(
+    db: AsyncSession,
+    search: str | None = None,
+    page: int = 1,
+    page_size: int = 50,
+) -> PaginatedPartnersResponse:
+    base = _build_partners_stats_query(search)
+
+    # Count total
+    count_query = select(func.count()).select_from(
+        base.with_only_columns(Partner.id).subquery()
+    )
+    total = (await db.execute(count_query)).scalar() or 0
+
+    # Fetch page
+    offset = (page - 1) * page_size
+    query = base.order_by(Partner.created_at.desc()).offset(offset).limit(page_size)
+    result = await db.execute(query)
+    items = [_row_to_partner_stats(row) for row in result.all()]
+
+    return PaginatedPartnersResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 async def get_partner_detail(db: AsyncSession, partner_id: int) -> AdminPartnerDetailResponse | None:
@@ -314,6 +360,10 @@ async def get_partner_detail(db: AsyncSession, partner_id: int) -> AdminPartnerD
         workflow_id=partner.workflow_id,
         reward_percentage=partner.reward_percentage,
         effective_reward_percentage=_get_effective_reward_percentage(partner),
+        b24_entity_type=partner.b24_entity_type,
+        b24_entity_id=partner.b24_entity_id,
+        b24_entity_name=partner.b24_entity_name,
+        phone=partner.phone,
         links_count=len(links),
         clicks_count=clicks_count,
         clients_count=len(clients),
@@ -400,13 +450,27 @@ async def get_pending_registrations_count(db: AsyncSession) -> int:
     return result.scalar() or 0
 
 
-async def approve_registration(db: AsyncSession, partner_id: int) -> Partner:
+async def approve_registration(
+    db: AsyncSession,
+    partner_id: int,
+    b24_entity_type: str | None = None,
+    b24_entity_id: int | None = None,
+    b24_entity_name: str | None = None,
+) -> Partner:
     result = await db.execute(select(Partner).where(Partner.id == partner_id))
     partner = result.scalar_one_or_none()
     if not partner:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Партнёр не найден")
     if partner.approval_status != "pending":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Заявка уже обработана")
+
+    # Store B24 entity data if provided
+    if b24_entity_type is not None:
+        partner.b24_entity_type = b24_entity_type
+    if b24_entity_id is not None:
+        partner.b24_entity_id = b24_entity_id
+    if b24_entity_name is not None:
+        partner.b24_entity_name = b24_entity_name
 
     partner.approval_status = "approved"
     partner.is_active = True

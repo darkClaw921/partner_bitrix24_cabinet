@@ -168,3 +168,37 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> TokenResponse:
     new_refresh = create_refresh_token(data={"sub": str(partner.id)})
 
     return TokenResponse(access_token=new_access, refresh_token=new_refresh)
+
+
+async def admin_register_partner(
+    db: AsyncSession,
+    name: str,
+    email: str,
+    password: str,
+    company: str | None = None,
+) -> Partner:
+    """Admin creates a new partner with pending status. Does NOT create a workflow."""
+    result = await db.execute(select(Partner).where(Partner.email == email))
+    existing = result.scalar_one_or_none()
+
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email уже зарегистрирован",
+        )
+
+    partner_code = uuid.uuid4().hex[:8]
+    partner = Partner(
+        email=email,
+        password_hash=hash_password(password),
+        name=name,
+        company=company,
+        partner_code=partner_code,
+        is_active=False,
+        approval_status="pending",
+    )
+    db.add(partner)
+    await db.commit()
+    await db.refresh(partner)
+
+    return partner

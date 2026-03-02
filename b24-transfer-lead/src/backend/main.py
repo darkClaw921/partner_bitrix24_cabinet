@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from src.backend.api.v1 import auth, leads, public, users, webhook, workflows
+from src.backend.api.v1 import auth, b24_entities, leads, public, users, webhook, workflows
 from src.backend.core.config import settings
 from src.backend.core.database import init_main_db
 # Import models to ensure they are registered with SQLAlchemy
@@ -71,6 +71,7 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(workflows.router, prefix="/api/v1/workflows", tags=["workflows"])
 app.include_router(leads.router, prefix="/api/v1/workflows", tags=["leads"])
+app.include_router(b24_entities.router, prefix="/api/v1/workflows", tags=["b24_entities"])
 app.include_router(webhook.router, prefix="/api/v1/webhook", tags=["webhook"])
 app.include_router(public.router, prefix="/api/v1/public", tags=["public"])
 

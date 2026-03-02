@@ -49,6 +49,12 @@ class Partner(Base):
     workflow_id: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     b24_api_token: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
 
+    # B24 CRM entity linking
+    b24_entity_type: Mapped[str | None] = mapped_column(String(20), nullable=True, default=None)  # "contact" | "company"
+    b24_entity_id: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)       # B24 Contact/Company ID
+    b24_entity_name: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)  # Cached display name
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
+
     links = relationship("PartnerLink", back_populates="partner", lazy="selectin")
     clients = relationship("Client", back_populates="partner", lazy="selectin")
     landings = relationship("LandingPage", back_populates="partner", lazy="selectin")

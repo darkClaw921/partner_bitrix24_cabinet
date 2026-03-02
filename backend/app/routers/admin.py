@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+import logging
+
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_admin_user, get_db
@@ -7,18 +11,23 @@ from app.schemas.admin import (
     AdminConfigResponse,
     AdminOverviewResponse,
     AdminPartnerDetailResponse,
+    AdminRegisterPartnerRequest,
+    ApproveRegistrationRequest,
     BulkClientPaymentUpdateRequest,
     ClientPaymentUpdateRequest,
     GlobalRewardPercentageResponse,
     GlobalRewardPercentageUpdateRequest,
+    PaginatedPartnersResponse,
     PartnerPaymentSummaryResponse,
     PartnerRewardPercentageUpdateRequest,
     RegistrationRequestResponse,
     RejectRegistrationRequest,
 )
 from app.schemas.notification import NotificationListResponse, NotificationResponse
-from app.services import admin_service, notification_service
+from app.services import admin_service, auth_service, b24_entity_service, notification_service
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -31,12 +40,15 @@ async def overview(
     return await admin_service.get_admin_overview(db)
 
 
-@router.get("/partners", response_model=list)
+@router.get("/partners", response_model=PaginatedPartnersResponse)
 async def partners_list(
+    search: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     _admin: Partner = Depends(get_admin_user),
 ):
-    return await admin_service.get_partners_stats(db)
+    return await admin_service.get_partners_stats_paginated(db, search=search, page=page, page_size=page_size)
 
 
 @router.get("/partners/{partner_id}", response_model=AdminPartnerDetailResponse)
@@ -123,10 +135,17 @@ async def pending_registrations_count(
 @router.post("/registrations/{partner_id}/approve")
 async def approve_registration(
     partner_id: int,
+    data: ApproveRegistrationRequest | None = Body(default=None),
     db: AsyncSession = Depends(get_db),
     _admin: Partner = Depends(get_admin_user),
 ):
-    partner = await admin_service.approve_registration(db, partner_id)
+    partner = await admin_service.approve_registration(
+        db,
+        partner_id,
+        b24_entity_type=data.b24_entity_type if data else None,
+        b24_entity_id=data.b24_entity_id if data else None,
+        b24_entity_name=data.b24_entity_name if data else None,
+    )
     return {"ok": True, "partner_id": partner.id}
 
 
@@ -234,3 +253,120 @@ async def delete_notification(
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
     return {"ok": True}
+
+
+# --- Admin register partner ---
+
+
+@router.post("/partners/register")
+async def admin_register_partner(
+    data: AdminRegisterPartnerRequest,
+    db: AsyncSession = Depends(get_db),
+    _admin: Partner = Depends(get_admin_user),
+):
+    """Admin creates a new partner manually."""
+    partner = await auth_service.admin_register_partner(
+        db,
+        name=data.name,
+        email=data.email,
+        password=data.password,
+        company=data.company,
+    )
+    return {
+        "id": partner.id,
+        "name": partner.name,
+        "email": partner.email,
+        "approval_status": partner.approval_status,
+    }
+
+
+# --- B24 proxy endpoints ---
+
+
+async def _get_any_workflow_id(db: AsyncSession) -> int:
+    """Get any available workflow_id for B24 proxy requests."""
+    result = await db.execute(
+        select(Partner.workflow_id).where(
+            Partner.workflow_id.isnot(None),
+            Partner.is_active == True,  # noqa: E712
+        ).limit(1)
+    )
+    workflow_id = result.scalar_one_or_none()
+    if not workflow_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active workflow available for B24 operations",
+        )
+    return workflow_id
+
+
+class CreateContactRequest(BaseModel):
+    name: str
+    last_name: str | None = None
+    phone: str | None = None
+    email: str | None = None
+
+
+class CreateCompanyRequest(BaseModel):
+    title: str
+    phone: str | None = None
+    email: str | None = None
+
+
+@router.get("/b24/contacts/search")
+async def search_b24_contacts(
+    query: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_db),
+    _admin: Partner = Depends(get_admin_user),
+):
+    """Search contacts in B24 (proxy to b24-transfer-lead)."""
+    workflow_id = await _get_any_workflow_id(db)
+    return await b24_entity_service.search_contacts(workflow_id, query)
+
+
+@router.get("/b24/companies/search")
+async def search_b24_companies(
+    query: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_db),
+    _admin: Partner = Depends(get_admin_user),
+):
+    """Search companies in B24 (proxy to b24-transfer-lead)."""
+    workflow_id = await _get_any_workflow_id(db)
+    return await b24_entity_service.search_companies(workflow_id, query)
+
+
+@router.post("/b24/contacts")
+async def create_b24_contact(
+    data: CreateContactRequest,
+    db: AsyncSession = Depends(get_db),
+    _admin: Partner = Depends(get_admin_user),
+):
+    """Create a contact in B24 (proxy to b24-transfer-lead)."""
+    workflow_id = await _get_any_workflow_id(db)
+    return await b24_entity_service.create_contact(
+        workflow_id,
+        {
+            "name": data.name,
+            "last_name": data.last_name,
+            "phone": data.phone,
+            "email": data.email,
+        },
+    )
+
+
+@router.post("/b24/companies")
+async def create_b24_company(
+    data: CreateCompanyRequest,
+    db: AsyncSession = Depends(get_db),
+    _admin: Partner = Depends(get_admin_user),
+):
+    """Create a company in B24 (proxy to b24-transfer-lead)."""
+    workflow_id = await _get_any_workflow_id(db)
+    return await b24_entity_service.create_company(
+        workflow_id,
+        {
+            "title": data.title,
+            "phone": data.phone,
+            "email": data.email,
+        },
+    )

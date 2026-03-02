@@ -288,3 +288,54 @@ def migrate_partner_b24_fields() -> None:
         conn.close()
     except Exception as e:
         logger.error("Migration failed: %s", e)
+
+
+def migrate_partner_b24_entity_fields() -> None:
+    db_path = _get_sync_db_path()
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        if not _column_exists(cursor, "partners", "b24_entity_type"):
+            cursor.execute("ALTER TABLE partners ADD COLUMN b24_entity_type VARCHAR(20)")
+            logger.info("Added b24_entity_type column to partners")
+
+        if not _column_exists(cursor, "partners", "b24_entity_id"):
+            cursor.execute("ALTER TABLE partners ADD COLUMN b24_entity_id INTEGER")
+            logger.info("Added b24_entity_id column to partners")
+
+        if not _column_exists(cursor, "partners", "b24_entity_name"):
+            cursor.execute("ALTER TABLE partners ADD COLUMN b24_entity_name VARCHAR(255)")
+            logger.info("Added b24_entity_name column to partners")
+
+        if not _column_exists(cursor, "partners", "phone"):
+            cursor.execute("ALTER TABLE partners ADD COLUMN phone VARCHAR(50)")
+            logger.info("Added phone column to partners")
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error("Migration (partner b24 entity fields) failed: %s", e)
+
+
+def migrate_system_settings_table() -> None:
+    db_path = _get_sync_db_path()
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS system_settings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key VARCHAR(100) UNIQUE NOT NULL,
+                value TEXT,
+                description VARCHAR(500)
+            )
+        """)
+        cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_system_settings_key ON system_settings(key)")
+
+        conn.commit()
+        conn.close()
+        logger.info("Ensured system_settings table exists")
+    except Exception as e:
+        logger.error("Migration (system_settings table) failed: %s", e)

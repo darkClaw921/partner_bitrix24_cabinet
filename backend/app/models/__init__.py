@@ -6,6 +6,7 @@ from app.models.landing import LandingImage, LandingPage
 from app.models.notification import Notification, NotificationRead
 from app.models.payment_request import PaymentRequest
 from app.models.chat_message import ChatMessage
+from app.models.system_setting import SystemSetting
 
 __all__ = [
     "Partner",
@@ -18,4 +19,5 @@ __all__ = [
     "NotificationRead",
     "PaymentRequest",
     "ChatMessage",
+    "SystemSetting",
 ]

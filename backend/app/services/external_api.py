@@ -1,6 +1,9 @@
 import logging
 from datetime import datetime, timezone
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.partner import Partner
 from app.services.b24_integration_service import b24_service
 
 logger = logging.getLogger(__name__)
@@ -12,24 +15,56 @@ async def send_client_webhook(
     link_code: str | None,
     client_data: dict,
     workflow_id: int | None = None,
+    partner: Partner | None = None,
+    db: AsyncSession | None = None,
 ) -> dict:
     if not workflow_id:
         logger.warning("No workflow_id for partner %s, skip lead creation", partner_code)
         return {"error": "Bitrix24 не настроен (нет workflow)"}
+
+    extra_fields: dict = {
+        "email": client_data.get("email"),
+        "company": client_data.get("company"),
+        "comment": client_data.get("comment"),
+        "source": source,
+        "link_code": link_code,
+        "partner_code": partner_code,
+    }
+
+    # Add tracking field if partner has B24 entity and tracking is configured
+    if partner and partner.b24_entity_id and db:
+        try:
+            from app.services.system_settings_service import (
+                format_tracking_value,
+                get_tracking_config,
+            )
+
+            tracking_config = await get_tracking_config(db)
+            lead_field = tracking_config.get("lead_field")
+            deal_field = tracking_config.get("deal_field")
+            value_template = tracking_config.get("value_template")
+            field_type = tracking_config.get("field_type")
+            if value_template and (lead_field or deal_field):
+                tracking_value = format_tracking_value(
+                    value_template, partner, field_type=field_type
+                )
+                if lead_field:
+                    extra_fields[lead_field] = tracking_value
+                if deal_field:
+                    extra_fields[deal_field] = tracking_value
+                logger.debug(
+                    "Added tracking fields lead=%s deal=%s val=%s for partner %s",
+                    lead_field, deal_field, tracking_value, partner.id,
+                )
+        except Exception as e:
+            logger.warning("Failed to add tracking field: %s", e)
 
     try:
         result = await b24_service.create_lead(
             workflow_id=workflow_id,
             name=client_data.get("name", ""),
             phone=client_data.get("phone", ""),
-            extra_fields={
-                "email": client_data.get("email"),
-                "company": client_data.get("company"),
-                "comment": client_data.get("comment"),
-                "source": source,
-                "link_code": link_code,
-                "partner_code": partner_code,
-            },
+            extra_fields=extra_fields,
         )
         return result
     except Exception as e:

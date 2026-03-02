@@ -1,6 +1,19 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class ApproveRegistrationRequest(BaseModel):
+    b24_entity_type: str | None = None  # "contact" | "company"
+    b24_entity_id: int | None = None
+    b24_entity_name: str | None = None
+
+
+class AdminRegisterPartnerRequest(BaseModel):
+    name: str
+    email: str
+    password: str = Field(..., min_length=6)
+    company: str | None = None
 
 
 class ClientPaymentUpdateRequest(BaseModel):
@@ -47,6 +60,13 @@ class PartnerStatsResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PaginatedPartnersResponse(BaseModel):
+    items: list[PartnerStatsResponse] = []
+    total: int = 0
+    page: int = 1
+    page_size: int = 50
+
+
 class AdminOverviewResponse(BaseModel):
     total_partners: int = 0
     total_links: int = 0
@@ -70,6 +90,10 @@ class AdminPartnerDetailResponse(BaseModel):
     workflow_id: int | None
     reward_percentage: float | None = None
     effective_reward_percentage: float = 0
+    b24_entity_type: str | None = None
+    b24_entity_id: int | None = None
+    b24_entity_name: str | None = None
+    phone: str | None = None
     links_count: int = 0
     clicks_count: int = 0
     clients_count: int = 0
@@ -103,6 +127,7 @@ class RegistrationRequestResponse(BaseModel):
     name: str
     company: str | None
     partner_code: str
+    phone: str | None = None
     created_at: datetime
     approval_status: str
 

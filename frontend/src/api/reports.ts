@@ -61,6 +61,7 @@ interface ReportParams {
 
 interface AdminReportParams extends ReportParams {
   partner_id?: number
+  partner_ids?: number[]
 }
 
 export async function getPartnerReport(params: ReportParams): Promise<PartnerReportResponse> {
@@ -76,14 +77,28 @@ export async function downloadPartnerReportPDF(params: ReportParams): Promise<vo
   downloadBlob(response.data, 'report.pdf')
 }
 
+function buildAdminReportSearchParams(params: AdminReportParams): URLSearchParams {
+  const sp = new URLSearchParams()
+  if (params.date_from) sp.append('date_from', params.date_from)
+  if (params.date_to) sp.append('date_to', params.date_to)
+  if (params.partner_ids) {
+    for (const id of params.partner_ids) sp.append('partner_ids', String(id))
+  } else if (params.partner_id) {
+    sp.append('partner_id', String(params.partner_id))
+  }
+  return sp
+}
+
 export async function getAdminReport(params: AdminReportParams): Promise<AllPartnersReportResponse> {
-  const response = await apiClient.get<AllPartnersReportResponse>('/admin/reports', { params })
+  const response = await apiClient.get<AllPartnersReportResponse>('/admin/reports', {
+    params: buildAdminReportSearchParams(params),
+  })
   return response.data
 }
 
 export async function downloadAdminReportPDF(params: AdminReportParams): Promise<void> {
   const response = await apiClient.get('/admin/reports/pdf', {
-    params,
+    params: buildAdminReportSearchParams(params),
     responseType: 'blob',
   })
   downloadBlob(response.data, 'report.pdf')

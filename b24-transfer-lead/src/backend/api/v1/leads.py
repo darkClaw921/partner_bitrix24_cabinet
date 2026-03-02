@@ -28,8 +28,9 @@ class CreateLeadRequest(BaseModel):
     phone: str
     name: str
     # Additional fields can be passed as dict[str, Any]
-    # They will be mapped using WorkflowFieldMapping
-    
+    # They will be mapped using WorkflowFieldMapping.
+    # Fields with names starting with UF_CRM_ are passed directly to Bitrix24.
+
     model_config = ConfigDict(extra='allow')
 
 
@@ -65,6 +66,53 @@ class LeadResponse(BaseModel):
         from_attributes = True
 
 
+_STANDARD_FIELD_MAP: dict[str, str] = {
+    "comment": "COMMENTS",
+    "email": "EMAIL",
+    "company": "COMPANY_TITLE",
+}
+
+
+def _prepare_extra_fields(
+    extra_fields_data: dict[str, Any],
+    field_mapping: dict[str, str],
+) -> tuple[dict[str, Any], list[tuple[str, str]]]:
+    """Prepare extra fields for Bitrix24 and for local storage.
+
+    Three categories of extra fields are supported:
+    1. Fields whose names start with ``UF_CRM_`` are already valid Bitrix24 user-field
+       IDs and are passed through directly. This allows the partner tracking system
+       to inject UF fields without requiring a WorkflowFieldMapping entry.
+    2. All other fields are resolved through *field_mapping* (WorkflowFieldMapping).
+    3. Standard fields (comment, email, company) are mapped to their Bitrix24
+       equivalents (COMMENTS, EMAIL, COMPANY_TITLE) automatically if no explicit
+       WorkflowFieldMapping exists.
+
+    Returns:
+        A tuple of (bitrix24_extra_fields, lead_fields_to_save).
+    """
+    bitrix24_extra_fields: dict[str, Any] = {}
+    lead_fields_to_save: list[tuple[str, str]] = []
+
+    for field_name, field_value in extra_fields_data.items():
+        if field_value is None:
+            continue
+        if field_name.startswith("UF_CRM_"):
+            # UF fields are already Bitrix24 field IDs -- pass through directly
+            bitrix24_extra_fields[field_name] = field_value
+            lead_fields_to_save.append((field_name, str(field_value)))
+        elif field_name in field_mapping:
+            bitrix24_field_id = field_mapping[field_name]
+            bitrix24_extra_fields[bitrix24_field_id] = field_value
+            lead_fields_to_save.append((field_name, str(field_value)))
+        elif field_name in _STANDARD_FIELD_MAP:
+            bitrix24_field_id = _STANDARD_FIELD_MAP[field_name]
+            bitrix24_extra_fields[bitrix24_field_id] = field_value
+            lead_fields_to_save.append((field_name, str(field_value)))
+
+    return bitrix24_extra_fields, lead_fields_to_save
+
+
 @router.get("/{workflow_id}/leads", response_model=list[LeadResponse])
 async def list_leads(
     workflow_id: int,
@@ -86,7 +134,7 @@ async def list_leads(
         or workflow.user_id == current_user.id
         or workflow in current_user.accessible_workflows
     )
-    
+
     if not has_access:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -105,7 +153,7 @@ async def list_leads(
             LeadFieldResponse(field_name=lf.field_name, field_value=lf.field_value)
             for lf in lead_fields
         ]
-        
+
         result.append(
             LeadResponse(
                 id=lead.id,
@@ -151,7 +199,7 @@ async def create_lead(
         or workflow.user_id == current_user.id
         or workflow in current_user.accessible_workflows
     )
-    
+
     if not has_access:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -163,23 +211,19 @@ async def create_lead(
         WorkflowFieldMapping.workflow_id == workflow_id,
         WorkflowFieldMapping.entity_type == workflow.entity_type,
     ).all()
-    
+
     # Create mapping dict: field_name -> bitrix24_field_id
     field_mapping = {mapping.field_name: mapping.bitrix24_field_id for mapping in mappings}
-    
+
     # Extract additional fields from request (exclude name and phone)
     request_dict = request.model_dump()
     extra_fields_data = {k: v for k, v in request_dict.items() if k not in ["name", "phone"]}
-    
-    # Prepare extra fields for Bitrix24 (only mapped fields)
-    bitrix24_extra_fields: dict[str, Any] = {}
-    lead_fields_to_save: list[tuple[str, str]] = []
-    
-    for field_name, field_value in extra_fields_data.items():
-        if field_name in field_mapping:
-            bitrix24_field_id = field_mapping[field_name]
-            bitrix24_extra_fields[bitrix24_field_id] = field_value
-            lead_fields_to_save.append((field_name, str(field_value)))
+
+    # Prepare extra fields for Bitrix24
+    # UF_CRM_* fields pass through directly; others go through WorkflowFieldMapping.
+    bitrix24_extra_fields, lead_fields_to_save = _prepare_extra_fields(
+        extra_fields_data, field_mapping
+    )
 
     # Create lead in workflow database
     workflow_db = next(database_service.get_workflow_session(workflow_id))
@@ -187,7 +231,7 @@ async def create_lead(
     workflow_db.add(lead)
     workflow_db.commit()
     workflow_db.refresh(lead)
-    
+
     # Save additional fields
     for field_name, field_value in lead_fields_to_save:
         lead_field = LeadField(
@@ -202,7 +246,7 @@ async def create_lead(
     try:
         bitrix_service = Bitrix24Service(workflow.bitrix24_webhook_url)
         entity_type = workflow.entity_type or "lead"
-        
+
         if entity_type == "deal":
             # Create deal
             category_id = workflow.deal_category_id if workflow.deal_category_id is not None else 0
@@ -216,20 +260,20 @@ async def create_lead(
             bitrix_entity_id = await bitrix_service.create_lead(
                 request.name, request.phone, status_id, extra_fields=bitrix24_extra_fields
             )
-        
+
         lead.bitrix24_lead_id = str(bitrix_entity_id)
         workflow_db.commit()
     except Exception as e:
         # Log error but don't fail the request
         print(f"Error creating {entity_type} in Bitrix24: {e}")
-    
+
     # Get additional fields for response
     lead_fields_query = workflow_db.query(LeadField).filter(LeadField.lead_id == lead.id).all()
     fields = [
         LeadFieldResponse(field_name=lf.field_name, field_value=lf.field_value)
         for lf in lead_fields_query
     ]
-    
+
     # Save attribute values before closing session
     lead_id = lead.id
     lead_phone = lead.phone
@@ -265,6 +309,120 @@ async def create_lead(
     )
 
 
+class ImportLeadRequest(BaseModel):
+    """Import a lead from an external sync (e.g. B24 deal sync).
+
+    Creates a local Lead record WITHOUT pushing to Bitrix24.
+    """
+
+    name: str
+    phone: str = ""
+    bitrix24_lead_id: str | None = None
+    deal_id: str | None = None
+    deal_amount: str | None = None
+    deal_status: str | None = None
+    deal_status_name: str | None = None
+    status: str | None = None
+
+
+@router.post("/{workflow_id}/leads/import", response_model=LeadResponse, status_code=status.HTTP_201_CREATED)
+async def import_lead(
+    workflow_id: int,
+    request: ImportLeadRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_main_db),
+):
+    """Import a lead from external sync (creates local record only, no B24 push)."""
+    workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+    if not workflow:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow not found",
+        )
+
+    has_access = (
+        current_user.role == "admin"
+        or workflow.user_id == current_user.id
+        or workflow in current_user.accessible_workflows
+    )
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied",
+        )
+
+    workflow_db = next(database_service.get_workflow_session(workflow_id))
+
+    # Deduplicate by deal_id or bitrix24_lead_id
+    if request.deal_id:
+        existing = workflow_db.query(Lead).filter(Lead.deal_id == request.deal_id).first()
+        if existing:
+            workflow_db.close()
+            return LeadResponse(
+                id=existing.id,
+                phone=existing.phone,
+                name=existing.name,
+                status=existing.status,
+                bitrix24_lead_id=existing.bitrix24_lead_id,
+                assigned_by_name=existing.assigned_by_name,
+                status_semantic_id=existing.status_semantic_id,
+                deal_id=existing.deal_id,
+                deal_amount=existing.deal_amount,
+                deal_status=existing.deal_status,
+                deal_status_name=existing.deal_status_name,
+                created_at=existing.created_at.isoformat(),
+                updated_at=existing.updated_at.isoformat(),
+                fields=[],
+            )
+
+    lead = Lead(
+        phone=request.phone,
+        name=request.name,
+        status=request.status or "NEW",
+        bitrix24_lead_id=request.bitrix24_lead_id,
+        deal_id=request.deal_id,
+        deal_amount=request.deal_amount,
+        deal_status=request.deal_status,
+        deal_status_name=request.deal_status_name,
+    )
+    workflow_db.add(lead)
+    workflow_db.commit()
+    workflow_db.refresh(lead)
+
+    lead_id = lead.id
+    lead_phone = lead.phone
+    lead_name = lead.name
+    lead_status = lead.status
+    lead_bitrix_id = lead.bitrix24_lead_id
+    lead_assigned_by_name = lead.assigned_by_name
+    lead_status_semantic_id = lead.status_semantic_id
+    lead_deal_id = lead.deal_id
+    lead_deal_amount = lead.deal_amount
+    lead_deal_status = lead.deal_status
+    lead_deal_status_name = lead.deal_status_name
+    lead_created_at = lead.created_at.isoformat()
+    lead_updated_at = lead.updated_at.isoformat()
+
+    workflow_db.close()
+
+    return LeadResponse(
+        id=lead_id,
+        phone=lead_phone,
+        name=lead_name,
+        status=lead_status,
+        bitrix24_lead_id=lead_bitrix_id,
+        assigned_by_name=lead_assigned_by_name,
+        status_semantic_id=lead_status_semantic_id,
+        deal_id=lead_deal_id,
+        deal_amount=lead_deal_amount,
+        deal_status=lead_deal_status,
+        deal_status_name=lead_deal_status_name,
+        created_at=lead_created_at,
+        updated_at=lead_updated_at,
+        fields=[],
+    )
+
+
 @router.post("/{workflow_id}/leads/upload", response_model=list[LeadResponse], status_code=status.HTTP_201_CREATED)
 async def upload_leads_csv(
     workflow_id: int,
@@ -275,7 +433,7 @@ async def upload_leads_csv(
     db: Session = Depends(get_main_db),
 ):
     """Upload leads from CSV file.
-    
+
     Args:
         workflow_id: ID of the workflow
         file: CSV file to upload
@@ -297,7 +455,7 @@ async def upload_leads_csv(
         or workflow.user_id == current_user.id
         or workflow in current_user.accessible_workflows
     )
-    
+
     if not has_access:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -334,7 +492,7 @@ async def upload_leads_csv(
     # Parse CSV
     content = await file.read()
     leads_data = parse_csv_leads(content.decode("utf-8"), column_mapping=column_mapping_dict)
-    
+
     # Apply limit if specified
     if limit_int is not None:
         leads_data = leads_data[:limit_int]
@@ -344,7 +502,7 @@ async def upload_leads_csv(
         WorkflowFieldMapping.workflow_id == workflow_id,
         WorkflowFieldMapping.entity_type == workflow.entity_type,
     ).all()
-    
+
     # Create mapping dict: field_name -> bitrix24_field_id
     field_mapping = {mapping.field_name: mapping.bitrix24_field_id for mapping in mappings}
 
@@ -359,22 +517,18 @@ async def upload_leads_csv(
         phone = lead_data.get("phone", "")
         name = lead_data.get("name", "")
         extra_fields_data = {k: v for k, v in lead_data.items() if k not in ["name", "phone"]}
-        
-        # Prepare extra fields for Bitrix24 (only mapped fields)
-        bitrix24_extra_fields: dict[str, Any] = {}
-        lead_fields_to_save: list[tuple[str, str]] = []
-        
-        for field_name, field_value in extra_fields_data.items():
-            if field_name in field_mapping:
-                bitrix24_field_id = field_mapping[field_name]
-                bitrix24_extra_fields[bitrix24_field_id] = field_value
-                lead_fields_to_save.append((field_name, str(field_value)))
-        
+
+        # Prepare extra fields for Bitrix24
+        # UF_CRM_* fields pass through directly; others go through WorkflowFieldMapping.
+        bitrix24_extra_fields, lead_fields_to_save = _prepare_extra_fields(
+            extra_fields_data, field_mapping
+        )
+
         lead = Lead(phone=phone, name=name, status="NEW")
         workflow_db.add(lead)
         workflow_db.commit()
         workflow_db.refresh(lead)
-        
+
         # Save additional fields
         for field_name, field_value in lead_fields_to_save:
             lead_field = LeadField(
@@ -400,7 +554,7 @@ async def upload_leads_csv(
                 bitrix_entity_id = await bitrix_service.create_lead(
                     name, phone, status_id, extra_fields=bitrix24_extra_fields
                 )
-            
+
             lead.bitrix24_lead_id = str(bitrix_entity_id)
             workflow_db.commit()
         except Exception as e:
@@ -416,7 +570,7 @@ async def upload_leads_csv(
             LeadFieldResponse(field_name=lf.field_name, field_value=lf.field_value)
             for lf in lead_fields
         ]
-        
+
         result.append(
             LeadResponse(
                 id=lead.id,
@@ -461,7 +615,7 @@ async def export_leads_csv(
         or workflow.user_id == current_user.id
         or workflow in current_user.accessible_workflows
     )
-    
+
     if not has_access:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -477,7 +631,7 @@ async def export_leads_csv(
         WorkflowFieldMapping.workflow_id == workflow_id,
         WorkflowFieldMapping.entity_type == workflow.entity_type,
     ).all()
-    
+
     # Create mapping dict: field_name -> display_name
     field_display_names = {}
     for mapping in mappings:
@@ -489,13 +643,13 @@ async def export_leads_csv(
     try:
         bitrix_service = Bitrix24Service(workflow.bitrix24_webhook_url)
         entity_type = workflow.entity_type or "lead"
-        
+
         if entity_type == "deal":
             category_id = workflow.deal_category_id if workflow.deal_category_id is not None else 0
             statuses = await bitrix_service.get_deal_stages(category_id)
         else:
             statuses = await bitrix_service.get_lead_statuses()
-        
+
         for status in statuses:
             status_map[status["id"]] = status["name"]
     except Exception as e:
@@ -519,19 +673,19 @@ async def export_leads_csv(
     # Create CSV content with semicolon delimiter for Excel compatibility (Russian locale uses ;)
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';', quoting=csv.QUOTE_MINIMAL)
-    
+
     # Write headers
     writer.writerow(headers)
-    
+
     # Write data rows
     for lead in leads:
         # Get status display name
         status_display = status_map.get(lead.status, lead.status) if lead.status else "NEW"
-        
+
         # Get additional fields
         lead_fields = workflow_db.query(LeadField).filter(LeadField.lead_id == lead.id).all()
         field_dict = {field.field_name: field.field_value for field in lead_fields}
-        
+
         # Build row
         row = [
             lead.name,
@@ -543,23 +697,23 @@ async def export_leads_csv(
             lead.deal_status_name or lead.deal_status or "",
             lead.created_at.strftime("%Y-%m-%d %H:%M:%S") if lead.created_at else "",
         ]
-        
+
         # Add additional fields in order from mappings
         for mapping in mappings:
             if mapping.field_name in all_field_names:
                 row.append(field_dict.get(mapping.field_name, ""))
-        
+
         writer.writerow(row)
-    
+
     workflow_db.close()
-    
+
     # Return CSV file with UTF-8 BOM for Excel compatibility
     csv_content = output.getvalue()
     output.close()
-    
+
     # Add UTF-8 BOM for Excel to recognize encoding correctly
     csv_bytes = csv_content.encode('utf-8-sig')
-    
+
     return Response(
         content=csv_bytes,
         media_type="text/csv; charset=utf-8",

@@ -17,6 +17,13 @@ export interface PartnerStats {
   reward_percentage: number | null
 }
 
+export interface PaginatedPartners {
+  items: PartnerStats[]
+  total: number
+  page: number
+  page_size: number
+}
+
 export interface AdminOverview {
   total_partners: number
   total_links: number
@@ -55,6 +62,10 @@ export interface AdminPartnerDetail {
   workflow_id: number | null
   reward_percentage: number | null
   effective_reward_percentage: number
+  b24_entity_type: string | null
+  b24_entity_id: number | null
+  b24_entity_name: string | null
+  phone: string | null
   links_count: number
   clicks_count: number
   clients_count: number
@@ -69,6 +80,21 @@ export interface AdminPartnerDetail {
     created_at: string | null
   }>
   clients: AdminPartnerClient[]
+}
+
+export interface B24Contact {
+  id: number
+  name: string
+  last_name: string
+  phone?: string
+  email?: string
+}
+
+export interface B24Company {
+  id: number
+  title: string
+  phone?: string
+  email?: string
 }
 
 export interface ClientPaymentUpdate {
@@ -116,8 +142,12 @@ export async function getAdminOverview(): Promise<AdminOverview> {
   return response.data
 }
 
-export async function getAdminPartners(): Promise<PartnerStats[]> {
-  const response = await apiClient.get<PartnerStats[]>('/admin/partners')
+export async function getAdminPartners(params?: {
+  search?: string
+  page?: number
+  page_size?: number
+}): Promise<PaginatedPartners> {
+  const response = await apiClient.get<PaginatedPartners>('/admin/partners', { params })
   return response.data
 }
 
@@ -202,6 +232,7 @@ export interface RegistrationRequest {
   email: string
   name: string
   company: string | null
+  phone: string | null
   partner_code: string
   created_at: string
   approval_status: string
@@ -217,8 +248,54 @@ export async function getPendingRegistrationsCount(): Promise<number> {
   return response.data.count
 }
 
-export async function approveRegistration(partnerId: number): Promise<void> {
-  await apiClient.post(`/admin/registrations/${partnerId}/approve`)
+export async function approveRegistration(
+  partnerId: number,
+  data?: { b24_entity_type?: string; b24_entity_id?: number; b24_entity_name?: string }
+): Promise<void> {
+  await apiClient.post(`/admin/registrations/${partnerId}/approve`, data || null)
+}
+
+export async function adminRegisterPartner(data: {
+  name: string
+  email: string
+  password: string
+  company?: string
+}): Promise<any> {
+  const response = await apiClient.post('/admin/partners/register', data)
+  return response.data
+}
+
+export async function searchB24Contacts(query: string): Promise<B24Contact[]> {
+  const response = await apiClient.get<B24Contact[]>('/admin/b24/contacts/search', {
+    params: { query },
+  })
+  return response.data
+}
+
+export async function searchB24Companies(query: string): Promise<B24Company[]> {
+  const response = await apiClient.get<B24Company[]>('/admin/b24/companies/search', {
+    params: { query },
+  })
+  return response.data
+}
+
+export async function createB24Contact(data: {
+  name: string
+  last_name?: string
+  phone?: string
+  email?: string
+}): Promise<B24Contact> {
+  const response = await apiClient.post<B24Contact>('/admin/b24/contacts', data)
+  return response.data
+}
+
+export async function createB24Company(data: {
+  title: string
+  phone?: string
+  email?: string
+}): Promise<B24Company> {
+  const response = await apiClient.post<B24Company>('/admin/b24/companies', data)
+  return response.data
 }
 
 export async function rejectRegistration(partnerId: number, rejectionReason?: string): Promise<void> {

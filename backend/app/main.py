@@ -7,9 +7,10 @@ from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.database import Base, engine
 from app.models import *  # noqa: F401,F403
-from app.routers import admin, analytics, auth, bitrix_settings, chat, clients, landings, links, notifications, payment_requests, public, reports
+from app.routers import admin, analytics, auth, bitrix_settings, chat, clients, landings, links, notifications, payment_requests, public, reports, system_settings
+from app.services.deal_sync_service import start_sync_task, stop_sync_task
 from app.utils.create_admin import ensure_admin_exists
-from app.utils.migrate_db import migrate_chat_file_fields, migrate_chat_messages_table, migrate_client_deal_id, migrate_client_deal_status_fields, migrate_client_payment_fields, migrate_link_utm_fields, migrate_notification_file_fields, migrate_notification_target_partner, migrate_partner_approval_fields, migrate_partner_b24_fields, migrate_partner_payment_details, migrate_partner_reward_percentage, migrate_partner_role_field, migrate_payment_request_details
+from app.utils.migrate_db import migrate_chat_file_fields, migrate_chat_messages_table, migrate_client_deal_id, migrate_client_deal_status_fields, migrate_client_payment_fields, migrate_link_utm_fields, migrate_notification_file_fields, migrate_notification_target_partner, migrate_partner_approval_fields, migrate_partner_b24_entity_fields, migrate_partner_b24_fields, migrate_partner_payment_details, migrate_partner_reward_percentage, migrate_partner_role_field, migrate_payment_request_details, migrate_system_settings_table
 
 
 @asynccontextmanager
@@ -30,8 +31,12 @@ async def lifespan(app: FastAPI):
     migrate_payment_request_details()
     migrate_client_deal_id()
     migrate_notification_file_fields()
+    migrate_system_settings_table()
+    migrate_partner_b24_entity_fields()
     ensure_admin_exists()
+    sync_task = start_sync_task()
     yield
+    await stop_sync_task(sync_task)
 
 
 settings = get_settings()
@@ -60,6 +65,7 @@ app.include_router(payment_requests.router, prefix="/api")
 app.include_router(public.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
+app.include_router(system_settings.router, prefix="/api")
 
 
 @app.get("/")

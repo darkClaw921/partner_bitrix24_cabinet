@@ -298,6 +298,15 @@ export default function AdminPartnerDetailPage() {
           <span style={styles.infoLabel}>Workflow ID</span>
           <span style={styles.infoValue}>{partner.workflow_id || '—'}</span>
         </div>
+        {partner.b24_entity_id && (
+          <div style={styles.infoItem}>
+            <span style={styles.infoLabel}>B24 Сущность</span>
+            <span style={styles.infoValue}>
+              {partner.b24_entity_type === 'contact' ? 'Контакт' : 'Компания'} #{partner.b24_entity_id}
+              {partner.b24_entity_name ? ` (${partner.b24_entity_name})` : ''}
+            </span>
+          </div>
+        )}
         <div style={styles.infoItem}>
           <span style={styles.infoLabel}>% Вознаграждения</span>
           <span style={styles.infoValue}>

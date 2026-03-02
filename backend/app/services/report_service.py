@@ -230,11 +230,10 @@ async def generate_partner_report(
 
 
 async def generate_all_partners_report(
-    db: AsyncSession, date_from: date | None, date_to: date | None, partner_id: int | None = None
+    db: AsyncSession, date_from: date | None, date_to: date | None, partner_ids: list[int] | None = None
 ) -> AllPartnersReportResponse:
-    if partner_id:
-        # Single partner mode for admin
-        partners_q = select(Partner).where(Partner.id == partner_id)
+    if partner_ids:
+        partners_q = select(Partner).where(Partner.id.in_(partner_ids)).order_by(Partner.created_at.desc())
     else:
         partners_q = select(Partner).where(Partner.role == "partner").order_by(Partner.created_at.desc())
 
