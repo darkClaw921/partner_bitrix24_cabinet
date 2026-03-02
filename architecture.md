@@ -145,6 +145,8 @@ partner_bitrix24_cabinet/
         ├── context/
         │   ├── AuthContext.tsx      # AuthProvider: partner state, login/register/logout/refreshAuth, isAdmin
         │   └── ToastContext.tsx     # ToastProvider: toast-уведомления
+        ├── utils/
+        │   └── cookies.ts          # setCookie(name, value, days), getCookie(name), deleteCookie(name) — хранение JWT-токенов в cookies вместо localStorage
         ├── hooks/
         │   ├── useAuth.ts          # Custom hook для доступа к AuthContext
         │   ├── useToast.ts         # Custom hook для доступа к ToastContext

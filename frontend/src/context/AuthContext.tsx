@@ -1,5 +1,6 @@
 import { createContext, useEffect, useState, useCallback, type ReactNode } from 'react'
 import { type Partner, type RegisterData, getMe, login as apiLogin, register as apiRegister, logout as apiLogout } from '@/api/auth'
+import { getCookie } from '@/utils/cookies'
 
 interface AuthContextType {
   partner: Partner | null
@@ -32,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken')
+    const token = getCookie('accessToken')
     if (token) {
       refreshAuth().finally(() => setLoading(false))
     } else {

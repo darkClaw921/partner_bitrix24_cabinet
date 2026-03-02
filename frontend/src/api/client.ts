@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { getGlobalShowToast } from '@/context/ToastContext'
+import { getCookie, setCookie, deleteCookie } from '@/utils/cookies'
 
 function formatApiError(error: unknown): string {
   if (!axios.isAxiosError(error)) return 'Неизвестная ошибка'
@@ -23,7 +24,7 @@ const apiClient = axios.create({
 })
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken')
+  const token = getCookie('accessToken')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -38,10 +39,10 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
 
-      const refreshToken = localStorage.getItem('refreshToken')
+      const refreshToken = getCookie('refreshToken')
       if (!refreshToken) {
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('refreshToken')
+        deleteCookie('accessToken')
+        deleteCookie('refreshToken')
         window.location.href = '/login'
         return Promise.reject(error)
       }
@@ -51,12 +52,12 @@ apiClient.interceptors.response.use(
           refresh_token: refreshToken,
         })
         const { access_token } = response.data
-        localStorage.setItem('accessToken', access_token)
+        setCookie('accessToken', access_token, 1)
         originalRequest.headers.Authorization = `Bearer ${access_token}`
         return apiClient(originalRequest)
       } catch {
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('refreshToken')
+        deleteCookie('accessToken')
+        deleteCookie('refreshToken')
         window.location.href = '/login'
         return Promise.reject(error)
       }

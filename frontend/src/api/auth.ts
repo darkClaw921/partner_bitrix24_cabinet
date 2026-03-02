@@ -1,4 +1,5 @@
 import apiClient from './client'
+import { setCookie, getCookie, deleteCookie } from '@/utils/cookies'
 
 export interface RegisterData {
   email: string
@@ -44,18 +45,18 @@ export async function register(data: RegisterData): Promise<Partner> {
 
 export async function login(data: LoginData): Promise<TokenResponse> {
   const response = await apiClient.post<TokenResponse>('/auth/login', data)
-  localStorage.setItem('accessToken', response.data.access_token)
-  localStorage.setItem('refreshToken', response.data.refresh_token)
+  setCookie('accessToken', response.data.access_token, 1)
+  setCookie('refreshToken', response.data.refresh_token, 30)
   return response.data
 }
 
 export async function refresh(): Promise<TokenResponse> {
-  const refreshToken = localStorage.getItem('refreshToken')
+  const refreshToken = getCookie('refreshToken')
   const response = await apiClient.post<TokenResponse>('/auth/refresh', {
     refresh_token: refreshToken,
   })
-  localStorage.setItem('accessToken', response.data.access_token)
-  localStorage.setItem('refreshToken', response.data.refresh_token)
+  setCookie('accessToken', response.data.access_token, 1)
+  setCookie('refreshToken', response.data.refresh_token, 30)
   return response.data
 }
 
@@ -65,8 +66,8 @@ export async function getMe(): Promise<Partner> {
 }
 
 export function logout(): void {
-  localStorage.removeItem('accessToken')
-  localStorage.removeItem('refreshToken')
+  deleteCookie('accessToken')
+  deleteCookie('refreshToken')
 }
 
 export interface ChangePasswordData {
