@@ -21,6 +21,17 @@ export interface SystemSettings {
   b24_sync_enabled: string
   b24_sync_interval_minutes: string
   b24_sync_last_run: string
+  default_partner_links?: string
+}
+
+export interface DefaultLinkConfig {
+  title: string
+  url: string
+  enabled: boolean
+  utm_source?: string
+  utm_medium?: string
+  utm_campaign?: string
+  utm_content?: string
 }
 
 export async function getSettings(): Promise<SystemSettings> {
@@ -38,4 +49,13 @@ export async function updateSyncSettings(config: Partial<SyncConfig>): Promise<v
 
 export async function triggerSync(): Promise<void> {
   await apiClient.post('/admin/settings/sync/run-now')
+}
+
+export async function getDefaultLinksSettings(): Promise<DefaultLinkConfig[]> {
+  const response = await apiClient.get<{ links: DefaultLinkConfig[] }>('/admin/settings/default-links')
+  return response.data.links
+}
+
+export async function updateDefaultLinksSettings(links: DefaultLinkConfig[]): Promise<void> {
+  await apiClient.put('/admin/settings/default-links', { links })
 }

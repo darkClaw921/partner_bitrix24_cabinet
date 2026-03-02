@@ -1,4 +1,5 @@
 import logging
+import uuid
 from datetime import datetime
 
 from fastapi import HTTPException, status
@@ -22,8 +23,34 @@ from app.schemas.admin import (
     RegistrationRequestResponse,
 )
 from app.services.auth_service import create_partner_workflow
+from app.services import system_settings_service
 
 logger = logging.getLogger(__name__)
+
+
+async def create_default_links_for_partner(db: AsyncSession, partner: Partner) -> None:
+    """Create default partner links from system settings for a newly approved partner."""
+    links_config = await system_settings_service.get_default_links_config(db)
+    links_added = 0
+    for link_cfg in links_config:
+        if not link_cfg.get("enabled", True):
+            continue
+        link = PartnerLink(
+            partner_id=partner.id,
+            title=link_cfg.get("title", ""),
+            link_type="direct",
+            target_url=link_cfg.get("url"),
+            link_code=uuid.uuid4().hex[:10],
+            utm_source=link_cfg.get("utm_source") or None,
+            utm_medium=link_cfg.get("utm_medium") or None,
+            utm_campaign=link_cfg.get("utm_campaign") or None,
+            utm_content=link_cfg.get("utm_content") or None,
+            utm_term=partner.partner_code,
+        )
+        db.add(link)
+        links_added += 1
+    if links_added > 0:
+        await db.commit()
 
 
 def _get_effective_reward_percentage(partner: Partner) -> float:
@@ -477,6 +504,8 @@ async def approve_registration(
     await db.commit()
     await db.refresh(partner)
 
+    await create_default_links_for_partner(db, partner)
+    await db.refresh(partner)  # re-fetch after possible commit in create_default_links_for_partner
     await create_partner_workflow(db, partner)
 
     return partner

@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +26,20 @@ class TrackingConfigUpdateRequest(BaseModel):
 class SyncConfigUpdateRequest(BaseModel):
     enabled: bool | None = None
     interval_minutes: int | None = None
+
+
+class DefaultLinkConfig(BaseModel):
+    title: str
+    url: str
+    enabled: bool = True
+    utm_source: str | None = None
+    utm_medium: str | None = None
+    utm_campaign: str | None = None
+    utm_content: str | None = None
+
+
+class DefaultLinksUpdateRequest(BaseModel):
+    links: list[DefaultLinkConfig]
 
 
 # --- Endpoints ---
@@ -78,6 +92,28 @@ async def update_sync_config(
         await system_settings_service.set_setting(
             db, "b24_sync_interval_minutes", str(data.interval_minutes)
         )
+    return {"success": True}
+
+
+@router.get("/default-links")
+async def get_default_links(
+    db: AsyncSession = Depends(get_db),
+    _admin: Partner = Depends(get_admin_user),
+):
+    """Get default partner links configuration."""
+    links = await system_settings_service.get_default_links_config(db)
+    return {"links": links}
+
+
+@router.put("/default-links")
+async def update_default_links(
+    data: DefaultLinksUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    _admin: Partner = Depends(get_admin_user),
+):
+    """Update default partner links configuration."""
+    links_dicts = [link.model_dump() for link in data.links]
+    await system_settings_service.set_default_links_config(db, links_dicts)
     return {"success": True}
 
 

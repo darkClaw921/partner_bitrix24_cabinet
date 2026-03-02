@@ -91,7 +91,7 @@ partner_bitrix24_cabinet/
 │       │   ├── chat.py             # GET|POST /api/chat/messages, POST /api/chat/messages/file, GET /api/chat/unread-count, POST /api/chat/read; GET /api/admin/chat/conversations, GET|POST /api/admin/chat/conversations/{id}/messages, POST /api/admin/chat/conversations/{id}/messages/file, GET /api/admin/chat/unread-count, POST /api/admin/chat/conversations/{id}/read
 │       │   ├── reports.py          # GET /api/reports, /reports/pdf (партнёр); GET /api/admin/reports, /admin/reports/pdf (админ)
 │       │   ├── public.py           # Публичные: GET /r/{code} (с UTM-параметрами), /landing/{code}, POST /form/{code}, POST /webhook/b24 (прокси + обновление deal_status + авто-расчёт deal_amount/partner_reward из opportunity + уведомление с суммой и комиссией)
-│       │   └── system_settings.py # GET /api/admin/settings (все настройки), PUT /api/admin/settings/tracking (UF-поля), PUT /api/admin/settings/sync (sync-конфигурация), POST /api/admin/settings/sync/run-now (ручная синхронизация)
+│       │   └── system_settings.py # GET /api/admin/settings (все настройки), PUT /api/admin/settings/tracking (UF-поля), PUT /api/admin/settings/sync (sync-конфигурация), POST /api/admin/settings/sync/run-now (ручная синхронизация), GET /api/admin/settings/default-links (стандартные ссылки), PUT /api/admin/settings/default-links (обновить стандартные ссылки)
 │       ├── services/
 │       │   ├── __init__.py
 │       │   ├── auth_service.py     # register_partner(), login_partner(), refresh_tokens(), create_partner_workflow(), change_password(), admin_register_partner()
@@ -100,11 +100,11 @@ partner_bitrix24_cabinet/
 │       │   ├── external_api.py     # send_client_webhook(partner, db — tracking field), fetch_bitrix_stats(), check_client_status()
 │       │   ├── b24_integration_service.py # HTTP-клиент для b24-transfer-lead (httpx, X-Internal-API-Key, import_lead() для создания лидов без push в B24)
 │       │   ├── b24_entity_service.py  # HTTP-прокси к b24-transfer-lead для CRM-сущностей: search_contacts(), search_companies(), create_contact(), create_company(), get_deals_by_entity()
-│       │   ├── system_settings_service.py # get_setting(), set_setting(), get_all_settings(), get_tracking_config(), format_tracking_value()
+│       │   ├── system_settings_service.py # get_setting(), set_setting(), get_all_settings(), get_tracking_config(), format_tracking_value(), get_default_links_config(), set_default_links_config()
 │       │   ├── deal_sync_service.py   # Фоновая синхронизация сделок из B24: sync_deals_for_partner(), run_sync_cycle(), sync_loop(), start_sync_task(), stop_sync_task(). Создаёт Client в партнёрском кабинете + Lead в b24-transfer-lead. Фильтрация по UF tracking field (приоритет) или CONTACT_ID/COMPANY_ID
 │       │   ├── landing_service.py  # create_landing(), get_landings(), update_landing(), delete_landing()
 │       │   ├── analytics_service.py # get_summary(), get_links_stats(), get_bitrix_stats()
-│       │   ├── admin_service.py    # get_admin_overview(), get_partners_stats(), get_partner_detail(), update_client_payment() (авто-расчёт partner_reward), bulk_update_client_payments(), get_partner_payment_summary(), update_partner_reward_percentage(), _get_effective_reward_percentage(), toggle_partner_active(), get_pending_registrations(), get_pending_registrations_count(), approve_registration(b24_entity_type, b24_entity_id, b24_entity_name), reject_registration()
+│       │   ├── admin_service.py    # get_admin_overview(), get_partners_stats(), get_partner_detail(), update_client_payment() (авто-расчёт partner_reward), bulk_update_client_payments(), get_partner_payment_summary(), update_partner_reward_percentage(), _get_effective_reward_percentage(), toggle_partner_active(), get_pending_registrations(), get_pending_registrations_count(), approve_registration(b24_entity_type, b24_entity_id, b24_entity_name), reject_registration(), create_default_links_for_partner()
 │       │   ├── notification_service.py # create_notification() (с file upload), _save_notification_upload(), get_all_notifications() (с file_url), delete_notification() (удаляет файл), get_partner_notifications() (фильтрация по target_partner_id, с file_url), get_unread_count(), mark_as_read(), mark_all_as_read()
 │       │   ├── payment_request_service.py # create_payment_request(), get_pending_count(), get_partner_requests(), get_all_requests(), get_request_detail(), process_request()
 │       │   ├── chat_service.py    # send_message_partner(), send_message_with_file_partner(), get_partner_messages(), get_partner_unread_count(), mark_partner_messages_read(), get_conversations(), get_conversation_messages(), send_message_admin(), send_message_with_file_admin(), get_admin_total_unread_count(), mark_admin_messages_read()
@@ -137,7 +137,7 @@ partner_bitrix24_cabinet/
         │   ├── analytics.ts        # getSummary(), getLinksStats(), fetchBitrixStats()
         │   ├── bitrix.ts           # setupBitrix(), getBitrixSettings(), updateBitrixSettings(), getFunnels(), getStages(), getLeads(), getStats()
         │   ├── admin.ts            # getAdminOverview(), getAdminPartners(), getAdminPartnerDetail(), getAdminConfig(), updateClientPayment(), getPartnerPaymentSummary(), updatePartnerRewardPercentage(), togglePartnerActive(), getGlobalRewardPercentage(), updateGlobalRewardPercentage(), createNotification(), getAdminNotifications(), deleteNotification(), getPendingRegistrations(), getPendingRegistrationsCount(), approveRegistration(partnerId, b24EntityData?), rejectRegistration(), searchB24Contacts(), searchB24Companies(), createB24Contact(), createB24Company(), adminRegisterPartner()
-        │   ├── systemSettings.ts   # getSettings(), updateTrackingSettings(), updateSyncSettings(), triggerSync()
+        │   ├── systemSettings.ts   # getSettings(), updateTrackingSettings(), updateSyncSettings(), triggerSync(), getDefaultLinksSettings(), updateDefaultLinksSettings(); интерфейсы SystemSettings, TrackingConfig, SyncConfig, DefaultLinkConfig
         │   ├── notifications.ts    # getNotifications(), getUnreadCount(), markAsRead(), markAllAsRead()
         │   ├── paymentRequests.ts  # createPaymentRequest(), getPartnerPaymentRequests(), getPartnerPaymentRequest(), getAdminPaymentRequests(), getAdminPaymentRequest(), processPaymentRequest(), getPendingCount()
         │   ├── chat.ts             # getPartnerMessages(), sendPartnerMessage(), sendPartnerFile(), getPartnerUnreadCount(), markPartnerMessagesRead(), getAdminConversations(), getAdminConversationMessages(), sendAdminMessage(), sendAdminFile(), getAdminChatUnreadCount(), markAdminMessagesRead()
@@ -189,7 +189,7 @@ partner_bitrix24_cabinet/
                 ├── AdminNotificationsPage.tsx # Создание и управление уведомлениями для партнёров
                 ├── AdminReportsPage.tsx      # Сводный отчёт админа: DateRangePicker, выбор партнёра, StatsCard-метрики, таблица по партнёрам, скачать PDF
                 ├── AdminRegistrationsPage.tsx    # Управление заявками на регистрацию: таблица pending-заявок, одобрение с привязкой B24 (создание/поиск контакта/компании), отклонение с причиной, регистрация партнёра админом
-                ├── AdminSettingsPage.tsx         # Настройки: отслеживание партнёров (UF поля в лидах/сделках), синхронизация сделок из B24 (вкл/выкл, интервал, ручной запуск)
+                ├── AdminSettingsPage.tsx         # Настройки: отслеживание партнёров (UF поля в лидах/сделках), синхронизация сделок из B24 (вкл/выкл, интервал, ручной запуск), стандартные ссылки для новых партнёров (список с title/url/enabled, добавление/удаление, сохранение)
                 ├── AdminPaymentRequestsPage.tsx # Управление запросами на выплату: таблица, фильтр по статусу, одобрение/отклонение
                 ├── AdminChatPage.tsx         # Двухпанельный чат админа: список переписок слева, сообщения справа, поллинг 30с
                 └── AdminB24Page.tsx          # B24 Transfer Lead в iframe внутри админ-панели

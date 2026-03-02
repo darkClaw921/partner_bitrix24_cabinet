@@ -1,3 +1,4 @@
+import json
 import logging
 
 from sqlalchemy import select
@@ -64,6 +65,27 @@ async def get_tracking_config(db: AsyncSession) -> dict:
         "value_template": settings.get("partner_tracking_value_template"),
         "field_type": settings.get("partner_tracking_field_type"),
     }
+
+
+async def get_default_links_config(db: AsyncSession) -> list[dict]:
+    """Return default partner links list. Empty list if not configured."""
+    raw = await get_setting(db, "default_partner_links")
+    if not raw:
+        return []
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+async def set_default_links_config(db: AsyncSession, links: list[dict]) -> None:
+    """Save default partner links list as JSON."""
+    await set_setting(
+        db,
+        "default_partner_links",
+        json.dumps(links, ensure_ascii=False),
+        description="Default links created for new partners on registration approval",
+    )
 
 
 def format_tracking_value(
