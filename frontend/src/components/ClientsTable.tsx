@@ -44,9 +44,6 @@ export default function ClientsTable({ clients, skip, limit, onPageChange }: Cli
           <thead>
             <tr>
               <th style={styles.th}>Имя</th>
-              <th style={styles.th}>Телефон</th>
-              <th style={styles.th}>Email</th>
-              <th style={styles.th}>Компания</th>
               <th style={{ ...styles.th, textAlign: 'center' }}>Источник</th>
               <th style={styles.th}>Ссылка</th>
               <th style={{ ...styles.th, textAlign: 'center' }}>Webhook</th>
@@ -60,9 +57,6 @@ export default function ClientsTable({ clients, skip, limit, onPageChange }: Cli
               return (
                 <tr key={c.id} style={styles.tr}>
                   <td style={styles.td}>{c.name}</td>
-                  <td style={styles.td}>{c.phone || '—'}</td>
-                  <td style={styles.td}>{c.email || '—'}</td>
-                  <td style={styles.td}>{c.company || '—'}</td>
                   <td style={{ ...styles.td, textAlign: 'center' }}>
                     <span style={{ ...styles.badge, background: sc.bg, color: sc.color }}>
                       {SOURCE_LABELS[c.source] || c.source}

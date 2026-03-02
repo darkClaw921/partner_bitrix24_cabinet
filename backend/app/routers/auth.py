@@ -7,13 +7,14 @@ from app.dependencies import get_current_user, get_db
 from app.models.partner import Partner
 from app.schemas.auth import (
     AddPaymentMethodRequest,
+    ChangePasswordRequest,
     LoginRequest,
     PartnerResponse,
     RefreshRequest,
     RegisterRequest,
     TokenResponse,
 )
-from app.services.auth_service import login_partner, refresh_tokens, register_partner
+from app.services.auth_service import change_password, login_partner, refresh_tokens, register_partner
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -37,6 +38,16 @@ async def refresh(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/me", response_model=PartnerResponse)
 async def me(current_user: Partner = Depends(get_current_user)):
     return current_user
+
+
+@router.post("/change-password")
+async def change_password_endpoint(
+    data: ChangePasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Partner = Depends(get_current_user),
+):
+    await change_password(db, current_user, data)
+    return {"message": "Пароль успешно изменён"}
 
 
 @router.post("/payment-methods", response_model=PartnerResponse)

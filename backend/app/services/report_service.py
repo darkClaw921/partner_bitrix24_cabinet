@@ -195,8 +195,6 @@ async def _get_partner_clients_detail(
     return [
         {
             "name": c.name,
-            "email": c.email,
-            "phone": c.phone,
             "deal_amount": c.deal_amount,
             "partner_reward": c.partner_reward,
             "is_paid": c.is_paid,

@@ -95,8 +95,6 @@ export default function ReportsPage() {
                   <thead>
                     <tr>
                       <th style={styles.th}>Имя</th>
-                      <th style={styles.th}>Email</th>
-                      <th style={styles.th}>Телефон</th>
                       <th style={{ ...styles.th, textAlign: 'right' }}>Сумма</th>
                       <th style={{ ...styles.th, textAlign: 'right' }}>Комиссия</th>
                       <th style={styles.th}>Оплата</th>
@@ -108,8 +106,6 @@ export default function ReportsPage() {
                     {report!.clients.map((c, i) => (
                       <tr key={i}>
                         <td style={styles.td}>{c.name || '—'}</td>
-                        <td style={styles.td}>{c.email || '—'}</td>
-                        <td style={styles.td}>{c.phone || '—'}</td>
                         <td style={{ ...styles.td, textAlign: 'right' }}>
                           {c.deal_amount != null ? c.deal_amount.toLocaleString() : '—'}
                         </td>

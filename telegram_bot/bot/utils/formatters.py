@@ -38,12 +38,6 @@ def format_link_detail(link: dict) -> str:
 
 def format_client_detail(client: dict) -> str:
     lines = [f"<b>👤 {client.get('name', 'Клиент')}</b>\n"]
-    if client.get("phone"):
-        lines.append(f"📞 {client['phone']}")
-    if client.get("email"):
-        lines.append(f"📧 {client['email']}")
-    if client.get("company"):
-        lines.append(f"🏢 {client['company']}")
     lines.append(f"Источник: {'📝 Форма' if client.get('source') == 'form' else '✋ Вручную'}")
     if client.get("link_title"):
         lines.append(f"Ссылка: {client['link_title']}")

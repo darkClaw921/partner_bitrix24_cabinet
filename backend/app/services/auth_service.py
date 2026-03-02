@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.models.partner import Partner
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
+from app.schemas.auth import ChangePasswordRequest, LoginRequest, RegisterRequest, TokenResponse
 from app.services.b24_integration_service import b24_service
 from app.utils.security import (
     create_access_token,
@@ -168,6 +168,18 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> TokenResponse:
     new_refresh = create_refresh_token(data={"sub": str(partner.id)})
 
     return TokenResponse(access_token=new_access, refresh_token=new_refresh)
+
+
+async def change_password(
+    db: AsyncSession, partner: Partner, data: ChangePasswordRequest
+) -> None:
+    if not verify_password(data.current_password, partner.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Текущий пароль неверен",
+        )
+    partner.password_hash = hash_password(data.new_password)
+    await db.commit()
 
 
 async def admin_register_partner(

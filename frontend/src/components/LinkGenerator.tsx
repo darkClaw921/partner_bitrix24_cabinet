@@ -18,11 +18,13 @@ export default function LinkGenerator({ embedCode }: Props) {
   }
 
   const getCodeContent = (): string => {
-    if (embedCode.link_type === 'direct') return window.location.origin + embedCode.direct_url
-    if (embedCode.link_type === 'iframe' && embedCode.iframe_code) return embedCode.iframe_code
+    const origin = window.location.origin
+    if (embedCode.link_type === 'direct') return origin + embedCode.direct_url
+    if (embedCode.link_type === 'iframe' && embedCode.iframe_code)
+      return embedCode.iframe_code.replace(/src="(\/[^"]*)"/, `src="${origin}$1"`)
     if (embedCode.link_type === 'landing' && embedCode.landing_url)
-      return window.location.origin + embedCode.landing_url
-    return embedCode.direct_url
+      return origin + embedCode.landing_url
+    return origin + embedCode.direct_url
   }
 
   const getLabel = (): string => {

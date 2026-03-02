@@ -25,6 +25,7 @@ import PaymentRequestsPage from '@/pages/PaymentRequestsPage'
 import ReportsPage from '@/pages/ReportsPage'
 import AdminReportsPage from '@/pages/admin/AdminReportsPage'
 import ChatPage from '@/pages/ChatPage'
+import ProfilePage from '@/pages/ProfilePage'
 import AdminRegistrationsPage from '@/pages/admin/AdminRegistrationsPage'
 import AdminChatPage from '@/pages/admin/AdminChatPage'
 import AdminSettingsPage from '@/pages/admin/AdminSettingsPage'
@@ -67,6 +68,7 @@ function App() {
               <Route path="/payment-requests" element={<PaymentRequestsPage />} />
               <Route path="/bitrix-settings" element={<BitrixSettingsPage />} />
               <Route path="/chat" element={<ChatPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

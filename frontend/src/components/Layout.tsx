@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { to: '/payment-requests', label: 'Выплаты', icon: WalletIcon },
   { to: '/chat', label: 'Чат', icon: ChatIcon },
   { to: '/bitrix-settings', label: 'Bitrix24', icon: SettingsIcon },
+  { to: '/profile', label: 'Профиль', icon: ProfileIcon },
 ]
 
 const PAGE_TITLES: Record<string, string> = {
@@ -27,6 +28,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/payment-requests': 'Выплаты',
   '/chat': 'Чат с поддержкой',
   '/bitrix-settings': 'Настройки Bitrix24',
+  '/profile': 'Профиль',
 }
 
 function getPageTitle(pathname: string): string {
@@ -244,6 +246,15 @@ function ChatIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  )
+}
+
+function ProfileIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
     </svg>
   )
 }

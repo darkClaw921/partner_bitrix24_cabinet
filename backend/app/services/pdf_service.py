@@ -179,19 +179,17 @@ def _render_clients_table(pdf: ReportPDF, clients: list[dict]) -> None:
         cell_fill_mode="ROWS",
         cell_fill_color=(250, 250, 250),
         borders_layout="SINGLE_TOP_LINE",
-        col_widths=(6, 18, 20, 14, 12, 12, 6, 12),
-        text_align=("CENTER", "LEFT", "LEFT", "LEFT", "RIGHT", "RIGHT", "CENTER", "CENTER"),
+        col_widths=(6, 24, 18, 18, 12, 22),
+        text_align=("CENTER", "LEFT", "RIGHT", "RIGHT", "CENTER", "CENTER"),
     ) as table:
         header = table.row()
-        for h in ["№", "Имя", "Email", "Телефон", "Сумма, руб.", "Комиссия, руб.", "Опл.", "Дата"]:
+        for h in ["№", "Имя", "Сумма, руб.", "Комиссия, руб.", "Опл.", "Дата"]:
             header.cell(h)
 
         for i, c in enumerate(clients, 1):
             row = table.row()
             row.cell(str(i))
             row.cell(str(c.get("name") or "—"))
-            row.cell(str(c.get("email") or "—"))
-            row.cell(str(c.get("phone") or "—"))
             row.cell(_format_money(c.get("deal_amount") or 0))
             row.cell(_format_money(c.get("partner_reward") or 0))
             row.cell("Да" if c.get("is_paid") else "Нет")

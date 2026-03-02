@@ -69,6 +69,15 @@ export function logout(): void {
   localStorage.removeItem('refreshToken')
 }
 
+export interface ChangePasswordData {
+  current_password: string
+  new_password: string
+}
+
+export async function changePassword(data: ChangePasswordData): Promise<void> {
+  await apiClient.post('/auth/change-password', data)
+}
+
 export async function addPaymentMethod(label: string, value: string): Promise<Partner> {
   const response = await apiClient.post<Partner>('/auth/payment-methods', { label, value })
   return response.data

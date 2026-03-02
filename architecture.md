@@ -67,9 +67,9 @@ partner_bitrix24_cabinet/
 │       │   └── system_setting.py  # SystemSetting — key-value хранилище настроек (key (unique, indexed), value (Text), description)
 │       ├── schemas/
 │       │   ├── __init__.py
-│       │   ├── auth.py             # RegisterRequest, LoginRequest, TokenResponse, PartnerResponse (с полями role, saved_payment_methods), SavedPaymentMethod, AddPaymentMethodRequest
+│       │   ├── auth.py             # RegisterRequest, LoginRequest, TokenResponse, PartnerResponse (с полями role, saved_payment_methods), SavedPaymentMethod, AddPaymentMethodRequest, ChangePasswordRequest
 │       │   ├── link.py             # LinkCreateRequest, LinkUpdateRequest, LinkResponse, EmbedCodeResponse (с UTM-полями и redirect_url_with_utm)
-│       │   ├── client.py           # ClientCreateRequest, ClientResponse (с deal_amount, partner_reward, is_paid, deal_status, deal_status_name), PublicFormRequest
+│       │   ├── client.py           # ClientCreateRequest, ClientResponse (с deal_amount, partner_reward, is_paid, deal_status, deal_status_name; phone/email/company скрыты от партнёра), PublicFormRequest
 │       │   ├── landing.py          # LandingCreateRequest, LandingUpdateRequest, LandingImageResponse, LandingResponse
 │       │   ├── analytics.py        # SummaryResponse, LinkStatsResponse, BitrixStatsResponse
 │       │   ├── admin.py            # ApproveRegistrationRequest (b24_entity_type, b24_entity_id, b24_entity_name), AdminRegisterPartnerRequest (name, email, password, company), ClientPaymentUpdateRequest, BulkClientPaymentUpdateRequest, PartnerPaymentSummaryResponse, AdminOverviewResponse, PartnerStatsResponse, AdminPartnerDetailResponse (+ b24_entity_type, b24_entity_id, b24_entity_name, phone), AdminConfigResponse, PartnerRewardPercentageUpdateRequest, GlobalRewardPercentageResponse, GlobalRewardPercentageUpdateRequest, RegistrationRequestResponse (+ phone), RejectRegistrationRequest
@@ -79,7 +79,7 @@ partner_bitrix24_cabinet/
 │       │   └── report.py           # PartnerReportMetrics (с полями конверсий: total_deals, total_successful_deals, total_lost_deals, conversion_leads_to_deals, conversion_deals_to_successful), PartnerReportResponse, AllPartnersReportRow, AllPartnersReportResponse
 │       ├── routers/
 │       │   ├── __init__.py
-│       │   ├── auth.py             # POST /register, /login, /refresh, /payment-methods; GET /me; DELETE /payment-methods/{id}
+│       │   ├── auth.py             # POST /register, /login, /refresh, /change-password, /payment-methods; GET /me; DELETE /payment-methods/{id}
 │       │   ├── links.py            # CRUD /api/links
 │       │   ├── clients.py          # CRUD /api/clients
 │       │   ├── landings.py         # CRUD /api/landings
@@ -94,7 +94,7 @@ partner_bitrix24_cabinet/
 │       │   └── system_settings.py # GET /api/admin/settings (все настройки), PUT /api/admin/settings/tracking (UF-поля), PUT /api/admin/settings/sync (sync-конфигурация), POST /api/admin/settings/sync/run-now (ручная синхронизация)
 │       ├── services/
 │       │   ├── __init__.py
-│       │   ├── auth_service.py     # register_partner(), login_partner(), refresh_tokens(), create_partner_workflow(), admin_register_partner()
+│       │   ├── auth_service.py     # register_partner(), login_partner(), refresh_tokens(), create_partner_workflow(), change_password(), admin_register_partner()
 │       │   ├── link_service.py     # create_link(), get_links(), get_link(), update_link(), delete_link(), get_embed_code(), _build_url_with_utm()
 │       │   ├── client_service.py   # create_client_manual(), create_client_from_form()
 │       │   ├── external_api.py     # send_client_webhook(partner, db — tracking field), fetch_bitrix_stats(), check_client_status()
@@ -130,7 +130,7 @@ partner_bitrix24_cabinet/
         │   └── index.css           # CSS reset, CSS-переменные, утилитарные классы
         ├── api/
         │   ├── client.ts           # Axios instance с JWT interceptors
-        │   ├── auth.ts             # register(), login(), refresh(), getMe(), logout(), addPaymentMethod(), deletePaymentMethod(); Partner interface (с role, saved_payment_methods), SavedPaymentMethod
+        │   ├── auth.ts             # register(), login(), refresh(), getMe(), logout(), changePassword(), addPaymentMethod(), deletePaymentMethod(); Partner interface (с role, saved_payment_methods), SavedPaymentMethod, ChangePasswordData
         │   ├── links.ts            # getLinks(), createLink(), updateLink(), deleteLink(); интерфейсы Link, CreateLinkData, UpdateLinkData с UTM-полями
         │   ├── clients.ts          # getClients(), getClient(), createClient(); Client interface с deal_amount, partner_reward, is_paid, deal_status, deal_status_name
         │   ├── landings.ts         # getLandings(), createLanding(), updateLanding(), deleteLanding()
@@ -178,6 +178,7 @@ partner_bitrix24_cabinet/
             ├── PaymentRequestsPage.tsx # Запросы партнёра на выплату: таблица + модалка с выбором клиентов
             ├── ChatPage.tsx         # Чат партнёра с поддержкой: пузыри сообщений, ввод, авто-скролл, поллинг 30с
             ├── BitrixSettingsPage.tsx # Настройки Bitrix24
+            ├── ProfilePage.tsx       # Профиль партнёра: отображение данных (email, имя, компания, код) + смена пароля
             ├── NotFoundPage.tsx     # Страница 404
             └── admin/
                 ├── AdminDashboardPage.tsx    # Обзорная статистика по всем партнёрам + таблица
@@ -385,6 +386,7 @@ partner_bitrix24_cabinet/
 | /payment-requests         | PaymentRequestsPage          | Layout       | Partner |
 | /chat                     | ChatPage                     | Layout       | Partner |
 | /bitrix-settings          | BitrixSettingsPage           | Layout       | Partner |
+| /profile                  | ProfilePage                  | Layout       | Partner |
 | /admin                    | AdminDashboardPage           | AdminLayout  | Admin   |
 | /admin/registrations      | AdminRegistrationsPage       | AdminLayout  | Admin   |
 | /admin/settings           | AdminSettingsPage            | AdminLayout  | Admin   |
